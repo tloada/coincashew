@@ -1,31 +1,41 @@
 ---
-description: >-
-  On Ubuntu/Debian, this guide will illustrate how to install and configure a
-  Cardano stake pool from source code.
+CRÉDITOS: >-
+  ESTA GUÍA FUE HECHA POR [COINCASHEW](https://www.coincashew.com/).
+  LA GUÍA ORIGINAL EN INGLÉS LA PUEDES ENCONTRAR [AQUÍ](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node/#15-operational-and-maintenance-tips).
+---
+---
+TRADUCIDA POR: >-
+  ESTA GUÍA FUE TRADUCIDA POR [THE LEGEND OF ₳DA POOL [TLOA]](https://tloada.github.io/tloa/español.html).
+  SI DESEAS APOYARNOS, PUEDES HACERLO DELEGANDO A NUESTRO POOL CON TICKER [[TLOA]](https://tloada.github.io/tloa/español.html).
+---
+---
+Descripción: >-
+  En Ubuntu/Debian, esta guía ilustrará cómo instalar y configurar un
+  stake pool de Cardano usando el código fuente.
 ---
 
-# Guide: How to build a Cardano Stake Pool
+# Guía: Cómo construir un Stake Pool de Cardano
 
-{% hint style="success" %}
-As of July 28, 2020, this guide is written for **mainnet** with **release v.1.18.0** 😁 
+
+A partir del 28 de julio, 2020, esta guía está escrita para **mainnet** con **edición v.1.18.0** 😁 
 {% endhint %}
 
-## 🏁 0. Prerequisites
+## 🏁 0. Prerequisitos
 
-### 🧙♂ Skills for stake pool operators
+### 🧙♂ Habilidades de los operadores de stake pool
 
-As a stake pool operator for Cardano, you will typically have the following abilities:
+Como un operador de stake pool de Cardano, típicamente tendrás las siguientes habilidades:
 
-* operational knowledge of how to set up, run and maintain a Cardano node continuously
-* a commitment to maintain your node 24/7/365
-* system operation skills
-* server administration skills \(operational and maintenance\).
-* experience of development and operations \(DevOps\) would be very useful
+* conocimiento operacional de cómo instalar, operar y mantener un nodo de Cardano continuamente
+* un compromiso a mantenera tu nodo 24/7/365
+* habilidades de sistemas operativos
+* habilidades de administración de servidores \(operacionales y mantenimiento\)
+* experiencia de desarrollo y operaciones \(DevOps\) sería muy útil
 
-### 🎗 Minimum Hardware Requirements
+### 🎗 Requerimientos Mínimo del Equipo
 
-* **Operating system:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
-* **Processor:** Dual core CPU
+* **Sistema operativo:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
+* **Procesador:** CPU con doble núcleo
 * **Memory:** 4GB RAM
 * **Storage:** 24GB
 * **Internet:** 24/7 broadband internet connection with speeds at least 1 Mbps.
