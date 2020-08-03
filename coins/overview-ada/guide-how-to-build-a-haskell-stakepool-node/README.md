@@ -1,7 +1,8 @@
+
 ---
-CRÉDITOS: >-
-  ESTA GUÍA FUE HECHA POR [COINCASHEW](https://www.coincashew.com/).
-  LA GUÍA ORIGINAL EN INGLÉS LA PUEDES ENCONTRAR [AQUÍ](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node/#15-operational-and-maintenance-tips).
+**CRÉDITOS: >-
+  ESTA GUÍA FUE HECHA POR [COINCASHEW](https://www.coincashew.com).
+  LA GUÍA ORIGINAL EN INGLÉS LA PUEDES ENCONTRAR** [**AQUÍ**](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node/#15-operational-and-maintenance-tips).
 ---
 ---
 TRADUCIDA POR: >-
