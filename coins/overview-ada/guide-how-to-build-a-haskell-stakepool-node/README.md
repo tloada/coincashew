@@ -19,7 +19,6 @@ Descripción: >-
 
 
 A partir del 28 de julio, 2020, esta guía está escrita para **mainnet** con **edición v.1.18.0** 😁 
-{% endhint %}
 
 ## 🏁 0. Prerequisitos
 
