@@ -32,26 +32,26 @@ Como un operador de stake pool de Cardano, típicamente tendrás las siguientes 
 * habilidades de administración de servidores \(operacionales y mantenimiento\)
 * experiencia de desarrollo y operaciones \(DevOps\) sería muy útil
 
-### 🎗 Requerimientos Mínimo del Equipo
+### 🎗 Requerimientos Mínimos del Equipo
 
-* **Sistema operativo:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
+* **Sistema Operativo:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
 * **Procesador:** CPU con doble núcleo
-* **Memory:** 4GB RAM
-* **Storage:** 24GB
-* **Internet:** 24/7 broadband internet connection with speeds at least 1 Mbps.
-* **Data Plan**: at least 1GB per hour. 720GB per month.
-* **Power:** 24/7 electrical power
-* **ADA balance:** at least 1000 ADA
+* **Memoria RAM:** 4GB
+* **Disco Duro:** 24GB
+* **Internet:** conexión 24/7 a internet con banda ancha con velocidades de al menos 1 Mbps.
+* **Plan de Datos**: como mínimo 1GB por hora. 720GB cada mes.
+* **Electricidad:** energía eléctrica 24/7
+* **Balance de ADA:** como mínimo 1000 ADA
 
-### 🏋♂ Recommended Futureproof Hardware Setup
+### 🏋♂ Equipo Recomendado para Largo Plazo
 
-* **Operating system:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
-* **Processor:** Quad core or better CPU
-* **Memory:** 16GB RAM
-* **Storage:** 500GB SSD with RAID
-* **Internet:** Multiple 24/7 broadband internet connections with speeds at least 10 Mbps \(i.e. fiber + cellular 4G\)
-* **Data Plan**: at least 1GB per hour. 720GB per month.
-* **Power:** Redundant 24/7 electrical power with UPS
+* **Sistema Operativo:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
+* **Procesador:** CPU con cuádruple núcleo o mejor
+* **Memoria RAM:** 16GB
+* **Disco Duro:** 500GB SSD con RAID
+* **Internet:** Múltiples conexiones 24/7 a internet con banda ancha con velocidades de al menos 10 Mbps \(i.e. fibra + celular 4G\)
+* **Plan de Datos**: como mínimo 1GB por hora. 720GB cada mes.
+* **Electricidad:** Redundant 24/7 electrical power with UPS
 * **ADA balance:** more pledge is better, to be determined by **a0**, the pledge influence factor
 
 {% hint style="info" %}
