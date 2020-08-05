@@ -2919,7 +2919,7 @@ cardano-cli shelley transaction submit \
     $NETWORK_IDENTIFIER
 ```
 
-Tu pool será retirado al finalde tu epoch especificada. En este ejemplo, el retiro ocurrirá al final de la epoch 40. 
+Tu pool será retirado al final de tu epoch especificada. En este ejemplo, el retiro ocurrirá al final de la epoch 40. 
 
 Si cambia de parecer, puede crear y envair un nuevo certificado de registro antes de que termine la epoch 40, lo cual anulará el certificado de cancelación de registro.
 
