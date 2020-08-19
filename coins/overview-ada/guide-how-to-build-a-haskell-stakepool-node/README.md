@@ -949,19 +949,21 @@ cardano-cli shelley transaction submit \
 
 ## 📄 12. Registra tu stake pool
 
-Creá los metadatos de tu pool con un archivo JSON. Actualizalos con la información de tu pool.
+Creá los metadatos de tu pool con un archivo JSON. Actualízalos con la información de tu pool.
 
 **ticker** de 3-5 caracteres.
 
 **descripción** no puede exceder los 255 caracteres.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cat > poolMetaData.json << EOF
 {
 "name": "NombreDeMiPool",
-"description": "La descripción de mi pool",
+"description": "Descripción de mi Pool",
 "ticker": "NDMP",
-"homepage": "https://mipoolesgenial.com"
+"homepage": "https://miadapoolesgenial.com"
 }
 EOF
 ```
