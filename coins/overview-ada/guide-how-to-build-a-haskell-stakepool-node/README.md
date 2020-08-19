@@ -36,7 +36,7 @@ Como un operador de stake pool de Cardano, deberás contar con las siguientes ha
 
 🛑 **Antes de continuar con esta guía, debes de satisfacer las habilidades requeridas mencionadas anteriormente.** 🚧 
 
-### 🎗 Requerimientos Mínimos del Equipo
+### 🎗 Requisitos Mínimos del Equipo
 
 * **Dos servidores independientes:** 1 para tu nodo productor de bloques, 1 para tu nodo de relevo
 * **Una máquina fuera de línea, totalmente aislada del internet \(ambiente frío\)**
