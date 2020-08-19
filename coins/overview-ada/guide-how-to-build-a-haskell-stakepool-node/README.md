@@ -216,7 +216,7 @@ echo export CARDANO_NODE_SOCKET_PATH="$NODE_HOME/db/socket" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### 🔮 3.1 Configura el nodo productor de bloques y el nodo de relevo
+### 🔮 4 Configura el nodo productor de bloques
 
 Un nodo productor de bloques será configurado con varios pares de llaves necesarios para la creación de bloques \(cold keys (llaves frías), KES hot keys (llaves calientes KES) y VRF hot keys (llaves calientes VRF)\). Debe de conectarse solamente con sus nodos de relevo.
 
@@ -225,86 +225,51 @@ Un nodo de relevo no tendrá ninguna de las llaves y por lo tanto será incapaz 
 
 ![](../../../.gitbook/assets/producer-relay-diagram.png)
 
-Prepara la estructura de las carpetas y copia loas archivos json esenciales a cada carpeta.
-
-```text
-mkdir relaynode1
-mkdir relaynode2
-cp *.json relaynode1
-cp *.json relaynode2
-```
+En esta guía. construiremos **dos nodos** en dos **servidores distintos**. Un nodo será designado como **nodo productor de bloques**, y el otro será el nodo de relevo, llamado **relaynode1**.
 
 Configura el archivo **topology.json** de tal forma que 
 
-* solamente nodos de relevo se conecten al internet público y a tu nodo porductor de bloques
-* el nodo productor de bloques se conecte solamente a tus nodos de relevo
+* tus nodos de relevo se conecten a los nodos públicos de relevo (IOHK y relevos de tus 'buddies') y a tu nodo porductor de bloques
+* el nodo productor de bloques se conecte **solamente** a tus nodos de relevo
 
-Actualiza relaynode1 con lo siguiente. Simplemente copia y pega.
+En tu **nodo productor de bloques**, ejecuta lo siguiente. Actualiza la **addr** con la dirección IP pública de tu nodo de relevo.
 
-```text
-cat > $NODE_HOME/relaynode1/${NODE_CONFIG}-topology.json << EOF 
- {
-    "Producers": [
-      {
-        "addr": "127.0.0.1",
-        "port": 3000,
-        "valency": 2
-      },
-      {
-        "addr": "127.0.0.1",
-        "port": 3002,
-        "valency": 2
-      },
-      {
-        "addr": "relays-new.${NODE_URL}.iohk.io",
-        "port": 3001,
-        "valency": 2
-      }
-    ]
-  }
-EOF
-```
-
-Actualiza relaynode2 con lo siguiente. Simplemente copia y pega.
-
-```text
-cat > $NODE_HOME/relaynode2/${NODE_CONFIG}-topology.json << EOF 
- {
-    "Producers": [
-      {
-        "addr": "127.0.0.1",
-        "port": 3000,
-        "valency": 2
-      },
-      {
-        "addr": "127.0.0.1",
-        "port": 3001,
-        "valency": 2
-      },
-      {
-        "addr": "relays-new.${NODE_URL}.iohk.io",
-        "port": 3001,
-        "valency": 2
-      }
-    ]
-  }
-EOF
-```
-
-Actualiza el nodo productor de bloques con lo siguiente. Simplemente copia y pega.
-
-```text
+```bash
 cat > $NODE_HOME/${NODE_CONFIG}-topology.json << EOF 
  {
     "Producers": [
       {
-        "addr": "127.0.0.1",
-        "port": 3001,
-        "valency": 2
+        "addr": "<RELAYNODE1'S PUBLIC IP ADDRESS>",
+        "port": 6000,
+        "valency": 1
+      }
+    ]
+  }
+EOF
+```
+
+## 🛸 5. Configura tu(s) nodo\(s\) de relevo
+
+🚧 On your other server that will be designed as your relay node or what we will call **relaynode1** throughout this guide, carefully **repeat steps 1 through 3** in order to build the cardano binaries.
+
+You can have multiple relay nodes as you scale up your stake pool architecture. Simply create **relaynodeN** and adapt the guide instructions accordingly.
+
+On your **relaynode1,** run ****with the following after updating with your block producer's public IP address.
+
+{% tabs %}
+{% tab title="relaynode1" %}
+```bash
+cat > $NODE_HOME/${NODE_CONFIG}-topology.json << EOF 
+ {
+    "Producers": [
+      {
+        "addr": "<BLOCK PRODUCER NODE'S PUBLIC IP ADDRESS>",
+        "port": 6000,
+        "valency": 1
       },
       {
-        "addr": "127.0.0.1",
-        "port": 3002,
+        "addr": "relays-new.cardano-mainnet.iohk.io",
+        "port": 3001,
         "valency": 2
       }
     ]
