@@ -250,14 +250,12 @@ EOF
 
 ## 🛸 5. Configura tu(s) nodo\(s\) de relevo
 
-🚧 On your other server that will be designed as your relay node or what we will call **relaynode1** throughout this guide, carefully **repeat steps 1 through 3** in order to build the cardano binaries.
+🚧 En tu otro servidor que será designado como tu nodo de relevo o lo que llmaremos **relaynode1** por el resto de esta guía, cuidadosamente **respite los pasos 1 al 3** para construir los binarios de cardano.
 
-You can have multiple relay nodes as you scale up your stake pool architecture. Simply create **relaynodeN** and adapt the guide instructions accordingly.
+Puedes tener varios nodos de relevo en lo que aumentas la arquitectura de tu stake pool. Simplemente crea **relaynodeN** y adapta las instrucciones de la guía de manera apropiada.
 
-On your **relaynode1,** run ****with the following after updating with your block producer's public IP address.
+En tu **relaynode1**, ejecútalo con lo siguiente posteriormente de haber actualizado la dirección IP pública de tu nodo productor de bloques.
 
-{% tabs %}
-{% tab title="relaynode1" %}
 ```bash
 cat > $NODE_HOME/${NODE_CONFIG}-topology.json << EOF 
  {
@@ -279,18 +277,39 @@ EOF
 
 La *valency* (valencia) le indica al nodo cuántas conexiones debe de mantener abiertas. Solamente direcciones DNS son afectadas. Si el valor es 0, la dirección es ignorada.
 
-\*\*\*\*✨ **Consejo para la asignación de puertos:** Vas a necesitar asignar los puertos 3001 y 3002 a tu computadora. Chequea con [https://canyouseeme.org/](https://canyouseeme.org/)
+✨ **Consejo para la asignación de puertos:** Vas a necesitar asignar los puertos 3001 y 3002 a tu computadora. Chequea con [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/) o [https://canyouseeme.org/](https://canyouseeme.org/).
 
-## 🤖 4. Crea scripts de arranque
+## 🔏 6. Configura la máquina fuera de línea, totalmente aislada del internet
+
+Una máquina fuera de línea, totalmente aislada del internet es conocida como tu ambiente frío. 
+
+* Protege contra ataques key-logging, ataques basados en malware/virus y otras explotaciones de seguridad o firewall. 
+* Físicamente aisladas del resto de tu red. 
+* No debe de tener conexión a la red, inalámbrica o con cable ethernet. 
+* No es una VM en una máquina con conexión a una red.
+* Lee más sobre ['air-gapping' en wikipedia](https://en.wikipedia.org/wiki/Air_gap_%28networking%29).
+
+```bash
+echo export NODE_HOME=$HOME/cardano-my-node >> $HOME/.bashrc
+source $HOME/.bashrc
+mkdir -p $NODE_HOME
+```
+
+Copia desde tu **ambiente caliente**, también conocido como tu nodo productor de bloques, una copia de los binarios de **`cardano-cli`** en tu **ambiente frío**, esta máquina fuera de línea, totalmente aislada del internet. 
+
+Para permanecer un ambiente verdaderamente fuera de línea, asilado del internet, deberás mover tus archivos entre tus ambientes frío y caliente de manera física con llaves USB u otro dispositivo similar.
+
+## 🤖 7. Crea scripts de arranque
 
 El script de arranque contiene todas las variables necesarias para ejecutar un nodo-cardano como la carpeta, puerto, db, path, archivos de config y archivo de topología.
 
 Para tu nodo **nodo productor de bloques**:
 
-```text
+```bash
 cat > $NODE_HOME/startBlockProducingNode.sh << EOF 
+#!/bin/bash
 DIRECTORY=\$NODE_HOME
-PORT=3000
+PORT=6000
 HOSTADDR=0.0.0.0
 TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
 DB_PATH=\${DIRECTORY}/db
@@ -302,10 +321,11 @@ EOF
 
 Para tu **relaynode1**:
 
-```text
-cat > $NODE_HOME/relaynode1/startRelayNode1.sh << EOF 
-DIRECTORY=\$NODE_HOME/relaynode1
-PORT=3001
+```bash
+cat > $NODE_HOME/startRelayNode1.sh << EOF 
+#!/bin/bash
+DIRECTORY=\$NODE_HOME
+PORT=6000
 HOSTADDR=0.0.0.0
 TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
 DB_PATH=\${DIRECTORY}/db
@@ -315,98 +335,35 @@ cardano-node run --topology \${TOPOLOGY} --database-path \${DB_PATH} --socket-pa
 EOF
 ```
 
-Para tu **relaynode2**:
-
-```text
-cat > $NODE_HOME/relaynode2/startRelayNode2.sh << EOF 
-DIRECTORY=\$NODE_HOME/relaynode2
-PORT=3002
-HOSTADDR=0.0.0.0
-TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
-DB_PATH=\${DIRECTORY}/db
-SOCKET_PATH=\${DIRECTORY}/db/socket
-CONFIG=\${DIRECTORY}/${NODE_CONFIG}-config.json
-cardano-node run --topology \${TOPOLOGY} --database-path \${DB_PATH} --socket-path \${SOCKET_PATH} --host-addr \${HOSTADDR} --port \${PORT} --config \${CONFIG}
-EOF
-```
-
-El script **startStakePool.sh** automáticamente iniciará tus nodos de relevo y nodo productor de bloques.
-
-```text
-cat > $NODE_HOME/startStakePool.sh << EOF
-#!/bin/bash
-SESSION=$(whoami)
-tmux has-session -t \$SESSION 2>/dev/null
-if [ \$? != 0 ]; then
-   # tmux attach-session -t \$SESSION
-    tmux new-session -s \$SESSION -n window -d
-    tmux split-window -v
-    tmux split-window -h
-    tmux select-pane -t \$SESSION:window.0
-    tmux split-window -h
-    tmux send-keys -t \$SESSION:window.0 $NODE_HOME/startBlockProducingNode.sh Enter
-    tmux send-keys -t \$SESSION:window.1 htop Enter
-    tmux send-keys -t \$SESSION:window.2 $NODE_HOME/relaynode1/startRelayNode1.sh Enter
-    tmux send-keys -t \$SESSION:window.3 $NODE_HOME/relaynode2/startRelayNode2.sh Enter
-    echo Stakepool started. \"tmux a\" to view.
-fi
-EOF
-```
-
-El script **stopStakePool.sh** automáticamente detendrá tus nodos de relevo y nodo productor de bloques.
-
-```text
-cat > $NODE_HOME/stopStakePool.sh << EOF
-#!/bin/bash
-SESSION=$(whoami)
-tmux has-session -t \$SESSION 2>/dev/null
-if [ \$? != 0 ]; then
-        echo Stakepool not running.
-else
-        echo Stopped stakepool.
-        tmux kill-session -t \$SESSION
-fi
-EOF
-```
-
-## ✅ 5. Inicia el nodo
+## ✅ 8. Inicia los nodos
 
 **Oprime** Ctrl+Alt+T. Esto lanzará la terminal en una ventana.
 
 Agrega permisos de ejecución al script, inicia tu stake pool, y comienza a sincronizarte con la blockchain.
 
-```text
+Inicia tu nodo productor de bloques
+
+```bash
 cd $NODE_HOME
 chmod +x startBlockProducingNode.sh
-chmod +x relaynode1/startRelayNode1.sh
-chmod +x relaynode2/startRelayNode2.sh
-chmod +x startStakePool.sh
-chmod +x stopStakePool.sh
-./startStakePool.sh
+./startBlockProducingNode.sh
 ```
 
-Tu stake pool se está ejecutando en una sesión **tmux**. Para adjuntarla a la termina, ejecuta lo siguiente.
+Inicia tu nodo de relevo
 
-```text
-tmux a
+```bash
+cd $NODE_HOME
+chmod +x startRelayNode1.sh
+./startRelayNode1.sh
 ```
 
-Maximiza la ventana para un mejor vista de la sesión.
+🛑 **Para detener tu nodo**, puede oprimir '**`q`**' o ejecutar el comando `killall cardano-node`
 
-![](../../../.gitbook/assets/adatmux.png)
+✨ **Consejo**: Si sincronizas la base de datos de un nodo, puedes copiar la carpeta de la base de datos directamente a tu otro nodo y ahorrarte algo de tiempo.
 
-Para separarte de una sesión **tmux**,
+¡Felicidades! Ahora tu nodo está operando exitosamente. Deja que se sincronice por completo.
 
-**Oprime** Ctrl+b+d.
-
-✨ Consejos para usar **tmux** con los scripts \[start\|stop\]StakePool.sh
-
-* **Ctrl + b + arrow key** para navegar entre paneles
-* **Ctrl + b + z** para hacer zoom
-
-!Felicidades! Ahora tu nodo está operando exitosamente. Deja que se sincronice por completo.
-
-## ⚙ 6. Crea las llaves para el nodo productor de bloques
+## ⚙ 9. Crea las llaves para el nodo productor de bloques
 
 El nodo productor de bloques requiere que crees 3 llaves definidas en las [especificaciones del libro de Shelley](https://hydra.iohk.io/build/2473732/download/1/ledger-spec.pdf):
 
@@ -416,7 +373,7 @@ El nodo productor de bloques requiere que crees 3 llaves definidas en las [espec
 
 Primero, crea una par de llaves KES.
 
-```text
+```bash
 cd $NODE_HOME
 cardano-cli shelley node key-gen-KES \
     --verification-key-file kes.vkey \
@@ -426,18 +383,18 @@ cardano-cli shelley node key-gen-KES \
 
 Las llaves KES \(key evolving signature (llave evolutiva de firmas\) son creadas para asegurar tu stake pool contra hackers que quieran comprometer tus llaves. Estas deberán de ser regeneradas cada 90 días.
 
-Las **llaves frías** deberáin de ser creadas y almacenadas en una máquina sin conexión a internet de ningún tipo. Copia el binario `cardano-cli` y ejecuta el comando `node key-gen`. Las llaves frías son los archivos almacenados en `~/cold-keys.`
+Las **llaves frías** deberán de ser creadas y almacenadas en tu máquina fuera de línea, aislada del internet. Las llaves frías son los archivos almacenados en `$HOME/cold-keys.`
 
 Crea una carpeta para alamcenar tus llaves frías.
 
 ```text
-mkdir ~/cold-keys
-pushd ~/cold-keys
+mkdir $HOME/cold-keys
+pushd $HOME/cold-keys
 ```
 
 Crea un set de llaves frías y crea el archivo contador frío.
 
-```text
+```bash
 cardano-cli shelley node key-gen \
     --cold-verification-key-file node.vkey \
     --cold-signing-key-file node.skey \
@@ -448,7 +405,7 @@ Asegúrate de **respaldar todas tus llaves** a otro dispositivo de almacenamient
 
 Determina el número de slots por periodo KES usando el archivo génesis.
 
-```text
+```bash
 pushd +1
 slotsPerKESPeriod=$(cat $NODE_HOME/${NODE_CONFIG}-shelley-genesis.json | jq -r '.slotsPerKESPeriod')
 echo slotsPerKESPeriod: ${slotsPerKESPeriod}
@@ -456,19 +413,19 @@ echo slotsPerKESPeriod: ${slotsPerKESPeriod}
 
 **Antes de continuar, tu nodo debe de estar completamente sincronizado a la blockchain. De lo contrario, no podrás calcular el periodo KES actual. Tu nodo está sincronizado cuando la _epoch_ y _slot\#_ son iguales a los que se encuentran en un explorador de bloques como [https://pooltool.io/](https://pooltool.io/)**
 
-```text
-slotNo=$(cardano-cli shelley query tip $NETWORK_IDENTIFIER | jq -r '.slotNo')
+```bash
+slotNo=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 echo slotNo: ${slotNo}
 ```
 
 Encuentra el kesPeriod dividiendo el número del slot tip por el slotsPerKESPeriod.
 
-```text
+```bash
 kesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
 echo kesPeriod: ${kesPeriod}
 ```
 
-Con esté cálculo, puedes crear un certificado funcional para tu pool.
+Con este cálculo, puedes crear un certificado funcional para tu pool.
 
 Los operadores de stake pool debe de mostrar un certificado funcional para verificar que el pool tiene la autoridad para operar. El certificado incluye la firma del operador e incluye información clave sobre el pool \(direcciones, llaves, etc.\). Los certificados fucnionales representan el enlace entre las llaves frías del operador y su llave funcional.
 
