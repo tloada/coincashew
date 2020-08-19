@@ -70,7 +70,7 @@ Si necesitas ideas para cómo endurecer los nodos en tus servidores, refiérete 
 
 ### 🧱 Reconstruyendo los Nodos
 
-Si estás reconstruyendo o reusando una instalción existente de `cardano-node`, refiérete a la sección 15.2 en esta guía de cómo resetear la instalación.
+Si estás reconstruyendo o reusando una instalción existente de `cardano-node`, refiérete a la sección 18.2 en esta guía de cómo resetear la instalación.
 
 ## 🏭 1. Instala Cabal y GHC
 
@@ -283,7 +283,7 @@ La *valency* (valencia) le indica al nodo cuántas conexiones debe de mantener a
 
 Una máquina fuera de línea, totalmente aislada del internet es conocida como tu ambiente frío. 
 
-* Protege contra ataques key-logging, ataques basados en malware/virus y otras explotaciones de seguridad o firewall. 
+* Protege contra ataques key-logging, ataques basados en malware/virus y otras explotaciones de seguridad o firewall (cortafuegos). 
 * Físicamente aisladas del resto de tu red. 
 * No debe de tener conexión a la red, inalámbrica o con cable ethernet. 
 * No es una VM en una máquina con conexión a una red.
@@ -892,7 +892,7 @@ fee=$(cardano-cli shelley transaction calculate-min-fee \
     --witness-count 2 \
     --byron-witness-count 0 \
     --protocol-params-file params.json | awk '{ print $1 }')
-echo costo minimo: $fee
+echo costoMinimo: $fee
 ```
 
 Asegúrate que tu saldo sea mayor al costo a pagar + keyDeposit o esto no funcionará.
@@ -1049,12 +1049,16 @@ Aquí vamos a pledge 100 ADA con un costo fijo de ADA y un margen del pool de 15
 
 Vamos a stake nuestro pledge al pool.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley stake-address delegation-certificate \
     --staking-verification-key-file stake.vkey \
-    --cold-verification-key-file ~/cold-keys/node.vkey \
+    --cold-verification-key-file $HOME/cold-keys/node.vkey \
     --out-file deleg.cert
 ```
+
+Copia **deleg.cert** a tu **ambiente caliente**.
 
 Esto crea un certificado de delegación el cual delega fondos de todas las direcciones de stake asociadas con la llave `stake.vkey` al pool perteneciente a la llave fría `node.vkey`
 
@@ -1062,22 +1066,26 @@ El compromiso de stake que hace el operador del stake pool para delegar a su pro
 
 * Tu saldo debe de ser mayor a la cantidad de pledge.
 * Tus fondos del pledge no son movidos a ningún lado. En el ejemplo de esta guía, el pledge permanece en las llaves del dueño del stake pool, específicamente `payment.addr`
-* Noi complir con tu pledge resultará en que pierdas oportunidades para producir bloques y tus delegadores perderás recompensas. 
-* Tu pledge no está bloqueada. Eres libre de transferir tus fondos.
+* No complir con tu pledge resultará en que pierdas oportunidades para producir bloques y tus delegadores perderán recompensas. 
+* Tu pledge no está fijada. Eres libre de transferir tus fondos.
 
-Tunecesitas encontrar el **tip** de la blockchain para establecer el parámetro **ttl** de forma correcta.
+Necesitas encontrar el **tip** de la blockchain para establecer el parámetro **ttl** de forma correcta.
 
+**Nodo Productor de Bloques**
+
+```bash
+currentSlot=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
+echo Slot Actual: $currentSlot
 ```
-currentSlot=$(cardano-cli shelley query tip $NETWORK_IDENTIFIER | jq -r '.slotNo')
-echo Current Slot: $currentSlot
-```
 
-Encuentra tu balance y **UTXOs**.
+Encuentra tu saldo y **UTXOs**.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query utxo \
     --address $(cat payment.addr) \
-    $NETWORK_IDENTIFIER > fullUtxo.out
+    --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
 
@@ -1095,13 +1103,15 @@ while read -r utxo; do
     tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
 done < balance.out
 txcnt=$(cat balance.out | wc -l)
-echo Total ADA balance: ${total_balance}
-echo Number of UTXOs: ${txcnt}
+echo Saldo Total de ADA: ${total_balance}
+echo Numero de UTXOs: ${txcnt}
 ```
 
 Encuentra el costo del depósito del pool.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 poolDeposit=$(cat $NODE_HOME/params.json | jq -r '.poolDeposit')
 echo poolDeposit: $poolDeposit
 ```
@@ -1110,7 +1120,9 @@ Ejecuta el comando de transacciones build-raw.
 
 El valor del **ttl** debe de ser mayor al tip actual. En este ejemplo, usamos el slot + 10000. 
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+$(( ${total_balance} - ${poolDeposit}))  \
@@ -1123,30 +1135,36 @@ cardano-cli shelley transaction build-raw \
 
 Calcula el costo mínimo:
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 fee=$(cardano-cli shelley transaction calculate-min-fee \
     --tx-body-file tx.tmp \
     --tx-in-count ${txcnt} \
     --tx-out-count 1 \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --witness-count 3 \
     --byron-witness-count 0 \
     --protocol-params-file params.json | awk '{ print $1 }')
-echo fee: $fee
+echo costoMinimo: $fee
 ```
 
 Asegúrate que tu saldo sea mayor al costo a pagar + minPoolCost o esto no funcionará.
 
 Calcula el output de tu cambio.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 txOut=$((${total_balance}-${poolDeposit}-${fee}))
 echo txOut: ${txOut}
 ```
 
 Construye la transacción.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
@@ -1156,49 +1174,62 @@ cardano-cli shelley transaction build-raw \
     --certificate-file deleg.cert \
     --out-file tx.raw
 ```
+Copia **tx.raw** a tu **ambiente frío**.
 
 Firma la transacción.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley transaction sign \
     --tx-body-file tx.raw \
     --signing-key-file payment.skey \
-    --signing-key-file ~/cold-keys/node.skey \
+    --signing-key-file $HOME/cold-keys/node.skey \
     --signing-key-file stake.skey \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --out-file tx.signed
 ```
 
+Copia **tx.signed** a tu **ambiente caliente**.
+
 Envía la transacción.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction submit \
     --tx-file tx.signed \
-    $NETWORK_IDENTIFIER
+    --mainnet
 ```
 
-## 🐣 10. Localiza tu Stake pool ID y verifica que todo funcione 
+## 🐣 13. Localiza tu Stake pool ID y verifica que todo funcione 
 
 Puedes obtener tu stake pool ID de la siguiente forma:
 
-```text
-cardano-cli shelley stake-pool id --verification-key-file ~/cold-keys/node.vkey > stakepoolid.txt
+**Máquina fuera de línea, asilada del internet**
+
+```bash
+cardano-cli shelley stake-pool id --verification-key-file $HOME/cold-keys/node.vkey > stakepoolid.txt
 cat stakepoolid.txt
 ```
 
+Copia **stakepoolid.txt** a tu **ambiente caliente**.
+
 Ahora que tienes tu stake pool ID, verifica que esté incluida en la blockchain.
 
-```text
-cardano-cli shelley query ledger-state $NETWORK_IDENTIFIER | grep publicKey | grep $(cat stakepoolid.txt)
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query ledger-state --mainnet | grep publicKey | grep $(cat stakepoolid.txt)
 ```
 
 ¡El output de una cadena no-vacía significa que estás registrado! 👏 
 
 Con tu stake pool ID, ahora puedes econtrar tus data en los exploradores de bloques como [https://pooltool.io/](https://pooltool.io/)
 
-## ⚙ 11. Configura tus archivos de topología
+## ⚙ 14. Configura tus archivos de topología
 
-Shelley testnet ha sido lanzada sin descubrimiento de nodos peer-to-peer \(p2p\), así que esto significa que necesitarás agregar nodos de relevo confiables de maner manual para poder configurar nuestra topología. Este es un **paso crítico** ya que saltarse este paso resultará que tus bloques producidos sea aislados del resto de la red.
+Shelley testnet ha sido lanzada sin descubrimiento de nodos peer-to-peer \(p2p\), así que esto significa que necesitarás agregar nodos de relevo confiables de maner manual para poder configurar nuestra topología. Este es un **paso crucial** ya que saltarse este paso resultará que tus bloques producidos sea aislados del resto de la red.
 
 Hay dos formas de configurar tus archivos de topología. 
 
@@ -1213,20 +1244,23 @@ Créditos a [GROWPOOL](https://twitter.com/PoolGrow) por la adición y créditos
 
 Crea el script `topologyUpdater.sh` el cual publica la información de tu nodo a una lista de búsqueda de topología.
 
-```text
+```bash
+###
+### En relaynode1
+###
 cat > $NODE_HOME/topologyUpdater.sh << EOF
 #!/bin/bash
 # shellcheck disable=SC2086,SC2034
  
 USERNAME=$(whoami)
-CNODE_PORT=3001  # debe ser igual al puerto de tu nodo de relevo establecido en el comando de arranque
+CNODE_PORT=6000  # debe ser igual al puerto de tu nodo de relevo establecido en el comando de arranque
 CNODE_HOSTNAME="CHANGE ME"  # opcional. debe resolverse al IP del cual estás solicitando
 CNODE_BIN="/usr/local/bin"
 CNODE_HOME=$NODE_HOME
 CNODE_LOG_DIR="\${CNODE_HOME}/logs"
 GENESIS_JSON="\${CNODE_HOME}/${NODE_CONFIG}-shelley-genesis.json"
 NETWORKID=\$(jq -r .networkId \$GENESIS_JSON)
-CNODE_VALENCY=1   # optional for multi-IP hostnames
+CNODE_VALENCY=1   # optional para DNS con múltiples IP
 NWMAGIC=\$(jq -r .networkMagic < \$GENESIS_JSON)
 [[ "\${NETWORKID}" = "Mainnet" ]] && HASH_IDENTIFIER="--mainnet" || HASH_IDENTIFIER="--testnet-magic \${NWMAGIC}"
 [[ "\${NWMAGIC}" = "764824073" ]] && NETWORK_IDENTIFIER="--mainnet" || NETWORK_IDENTIFIER="--testnet-magic \${NWMAGIC}"
@@ -1255,7 +1289,10 @@ EOF
 
 Agrega los permisos y ejecuta el script actulizador.
 
-```text
+```bash
+###
+### En relaynode1
+###
 cd $NODE_HOME
 chmod +x topologyUpdater.sh
 ./topologyUpdater.sh
@@ -1267,9 +1304,12 @@ Cuando el script `topologyUpdater.sh` se ejecute correctament, verás
 
 Cada vez que el script se ejecute y actualice tu IP, un registro es creado en **`$NODE_HOME/logs`**
 
-Agrega a crontab job para automáticamente ejecutar `topologyUpdater.sh` cada hora en el minuto 22. Puedes cambiar el valor 22 con el de tu preferencia.
+Agrega una tarea crontab para automáticamente ejecutar `topologyUpdater.sh` cada hora en el minuto 22. Puedes cambiar el valor 22 con el de tu preferencia.
 
-```text
+```bash
+###
+### En relaynode1
+###
 cat > $NODE_HOME/crontab-fragment.txt << EOF
 22 * * * * ${NODE_HOME}/topologyUpdater.sh
 EOF
@@ -1279,39 +1319,42 @@ rm crontab-fragment.txt
 
 Luego de cuatro horas y cuatro actulizaciones, la IP de tu nodo será registrada en la lista de búsqueda de topología.
 
-### 🤹♀ Actualiza los archivos topológicos de tu nodo de relevo
+### 🤹♀ Actualiza los archivos de topología de tu nodo de relevo
 
-Completa esta sección luego de **four hours** cuando la IP de tu nodo de relevo sea registrada apropiadamente.
+Completa esta sección luego de **cuatro horas** cuando la IP de tu nodo de relevo sea registrada apropiadamente.
 
-Crea el script `relay-topology_pull.sh` el cual busca tus colegas en tu nodo de relevo y los actualiza en tu archivo de topología.
+Crea el script `relay-topology_pull.sh` el cual busca tus colegas en tu nodo de relevo y los actualiza en tu archivo de topología. **Actualízalo con tu dirección IP pública de tu nodo productor de bloques**.
 
-```text
+```bash
+###
+### En relaynode1
+###
 cat > $NODE_HOME/relay-topology_pull.sh << EOF
 #!/bin/bash
-BLOCKPRODUCING_IP=127.0.0.1
-BLOCKPRODUCING_PORT=3000
-RELAYNODE1_IP=127.0.0.1
-RELAYNODE1_PORT=3001
-RELAYNODE2_IP=127.0.0.1
-RELAYNODE2_PORT=3002
-curl -s -o $NODE_HOME/relaynode1/${NODE_CONFIG}-topology.json "https://api.clio.one/htopology/v1/fetch/?max=20&customPeers=\${BLOCKPRODUCING_IP}:\${BLOCKPRODUCING_PORT}:2|\${RELAYNODE1_IP}:\${RELAYNODE1_PORT}|relays-new.${NODE_URL}.iohk.io:3001:2|\${RELAYNODE2_IP}:\${RELAYNODE2_PORT}"
-cp $NODE_HOME/relaynode1/${NODE_CONFIG}-topology.json $NODE_HOME/relaynode2/${NODE_CONFIG}-topology.json
+BLOCKPRODUCING_IP=<BLOCK PRODUCERS PUBLIC IP ADDRESS>
+BLOCKPRODUCING_PORT=6000
+curl -s -o $NODE_HOME/${NODE_CONFIG}-topology.json "https://api.clio.one/htopology/v1/fetch/?max=20&customPeers=\${BLOCKPRODUCING_IP}:\${BLOCKPRODUCING_PORT}:2|relays-new.${NODE_URL}.iohk.io:3001:2"
 EOF
 ```
 
 Agrega los permisos y extrae los nuevos archivos de topología.
 
-```text
+```bash
+###
+### En relaynode1
+###
 chmod +x relay-topology_pull.sh
 ./relay-topology_pull.sh
 ```
 
 La nueva topología entra en efecto luego de reiniciar tu stake pool.
 
-```text
-./stopStakePool.sh
-./startStakePool.sh
-tmux a
+```bash
+###
+### En relaynode1
+###
+killall cardano-node
+./startRelayNode1.sh
 ```
 
 **¡No olvides reiniciar tus nodos cada vez que actualices la topología!**
@@ -1323,7 +1366,7 @@ tmux a
 3. Busca tu stake pool ID
 4. Click ➡ **Pool Details** &gt; **Manage** &gt; **CLAIM THIS POOL**
 5. Completa el nombre de tu pool y el URL del pool si cuentas con uno.
-6. Completa tus **Nodos Privados** y **TUs Nodos de Relevo** de la siguiente manera.
+6. Completa tus **Private Nodes (Nodos Privados)** y **Your Relays (Tus Nodos de Relevo)** de la siguiente manera.
 
 ![](../../../.gitbook/assets/ada-relay-setup-mc4.png)
 
@@ -1365,7 +1408,10 @@ la conexión de un nodo de relevo no es establecida hasta que haya una solicitud
 
 Para relaynode1, crea un script get\_buddies.sh para actualizar tu archivo topology.json
 
-```text
+```bash
+###
+### En relaynode1
+###
 cat > $NODE_HOME/relaynode1/get_buddies.sh << EOF 
 #!/usr/bin/env bash
 
@@ -1405,48 +1451,6 @@ fi
 EOF
 ```
 
-Para relaynode2, crea un script get\_buddies.sh para actualizar tu archivo topology.json
-
-```text
-cat > $NODE_HOME/relaynode2/get_buddies.sh << EOF 
-#!/usr/bin/env bash
-
-# PUEDES PASAR ESTAS CADENAS COMO VARIABLES DE AMBIENTE, O EDITARLAS EN ESTE SCRIPT
-if [ -z "\$PT_MY_POOL_ID" ]; then
-## CAMBIA ESTAS A LA CONVENIENCIA DE TU POOL CON TU POOL ID COMO APARECE EN EL EXPLORADOR
-PT_MY_POOL_ID="XXXXXXXX"
-fi
-
-if [ -z "\$PT_MY_API_KEY" ]; then
-## OBTÉN ESTO DEL PERFIL DE TU CUENTA EN LA PÁGINA DE POOLTOOL
-PT_MY_API_KEY="XXXXXXXX"
-fi
-
-if [ -z "\$PT_MY_NODE_ID" ]; then
-## OBTÉN ESTO DE LA PESTAÑA MANAGE DE LA PÁGINA DE POOLTOOL
-PT_MY_NODE_ID="XXXXXXXX"
-fi
-
-if [ -z "\$PT_TOPOLOGY_FILE" ]; then
-## ESTABLECE EL PATH QUE UTILIZA TU ARCHIVO TOPOLOGY.JSON
-PT_TOPOLOGY_FILE="$NODE_HOME/relaynode2/${NODE_CONFIG}-topology.json"
-fi
-
-JSON="\$(jq -n --compact-output --arg MY_API_KEY "\$PT_MY_API_KEY" --arg MY_POOL_ID "\$PT_MY_POOL_ID" --arg MY_NODE_ID "\$PT_MY_NODE_ID" '{apiKey: \$MY_API_KEY, nodeId: \$MY_NODE_ID, poolId: \$MY_POOL_ID}')"
-echo "Packet Sent: \$JSON"
-RESPONSE="\$(curl -s -H "Accept: application/json" -H "Content-Type:application/json" -X POST --data "\$JSON" "https://api.pooltool.io/v0/getbuddies")"
-SUCCESS="\$(echo \$RESPONSE | jq '.success')"
-if [ \$SUCCESS ]; then
-  echo "éXITO"
-  echo \$RESPONSE | jq '. | {Producers: .message}' > \$PT_TOPOLOGY_FILE
-  echo "Topology almacenada en \$PT_TOPOLOGY_FILE.   Nota topology solamente tomará efecto la próxima vez que reinicies tu nodo"
-else
-  echo "Fracaso "
-  echo \$RESPONSE | jq '.message'
-fi
-EOF
-```
-
 Para cada uno de tus nodos de relevo, actualiza las siguientes variables de pooltool.io en tu scripts get\_buddies.sh
 
 * PT\_MY\_POOL\_ID 
@@ -1459,45 +1463,61 @@ Usa **nano** para editar tus scripts.
 
 `nano $NODE_HOME/relaynode1/get_buddies.sh`
 
-`nano $NODE_HOME/relaynode2/get_buddies.sh`
-
 Agrega los permisos de ejecución a estos scripts. Ejecuta los scripts para actualizar tus archivos de topología.
 
-```text
+```bash
+###
+### En relaynode1
+###
 cd $NODE_HOME
-chmod +x relaynode1/get_buddies.sh
-chmod +x relaynode2/get_buddies.sh
-./relaynode1/get_buddies.sh
-./relaynode2/get_buddies.sh
+chmod +x get_buddies.sh
+./get_buddies.sh
 ```
 
 Detén y reinicia ru stake pool para que los cambios a la topología hagan efecto.
 
-```text
-./stopStakePool.sh
-./startStakePool.sh
-tmux a
+```bash
+###
+### En relaynode1
+###
+killall cardano-node
+./startRelayNode1.sh
 ```
 
 En lo que tus SOLICITUDES sean aprovadas, deberás de ejecutar nuevamente el script get\_buddies.sh para extraer la data más reciente de la topología. Reinicia tus nodos de relevo posteriormente.
 
-\*\*\*\*🔥 **Paso crítico:** Para tener listo un stake pool funcional para producir bloques, debes de ver el número de **TXs processed** incrementar. De lo contrario, revisa tu topología y asegúrate que tus buddies de relevo estén debidamente conectados e, idealmente, produciendo algunos bloques.
+\*\*\*\*🔥 **Paso crucial:** Para tener listo un stake pool funcional para producir bloques, debes de ver el número de **TXs processed** incrementar. De lo contrario, revisa tu topología y asegúrate que tus buddies de relevo estén debidamente conectados e, idealmente, produciendo algunos bloques.
 
 ![](../../../.gitbook/assets/ada-tx-processed.png)
 
+\*\*\*\*🛑 **Recordatorio Crucial**: Las únicas **keys (llaves)** y **certs** necesarios para ejecutar un stake pool son los requeridos por tu nodo productor de bloques. Estos tres arechivos son los siguientes:
+
+```bash
+###
+### En nodo productor de bloques
+###
+KES=\${DIRECTORY}/kes.skey
+VRF=\${DIRECTORY}/vrf.skey
+CERT=\${DIRECTORY}/node.cert
+```
+
+**Todas las demás llaves deben de permanecer en un ambiente frío, tu máquina fuera de línea, aislada del internet**
+
 ¡Felicidades! Tu stake pool ha sido registrada y está lista para producir bloques.
 
-## 🎇 12. Revisando las Recompensas del Stake Pool
+## 🎇 15. Revisando las Recompensas del Stake Pool
 
 Al concluir la epoch y asumiendo que hayas producido bloques de manera exitosa, revisa de la siguiente manera:
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query stake-address-info \
  --address $(cat stake.addr) \
- $NETWORK_IDENTIFIER
+ --mainnet
 ```
 
-## 🔮 13. Configura tu Consola de Control con Prometheus y Grafana
+## 🔮 16. Configura tu Consola de Control con Prometheus y Grafana
 
 Prometheus es una plataforma de monitoreo que recolecta métricas de objetivos monitoreados mediante la extracción de métricas de extremos HTTPS en estos objetivos. [Documentación oficial disponible aquí.](https://prometheus.io/docs/introduction/overview/) Grafana es una consola de control usada para visualizar la data recolectada.
 
@@ -1505,45 +1525,58 @@ Prometheus es una plataforma de monitoreo que recolecta métricas de objetivos m
 
 Instala prometheus y prometheus node exporter.
 
-```text
-sudo apt-get install -y prometheus prometheus-alertmanager prometheus-node-exporter 
+**Relaynode1**
+
+```
+sudo apt-get install -y prometheus prometheus-node-exporter 
+```
+
+**Nodo Productor de Bloques**
+
+```bash
+sudo apt-get install -y prometheus-node-exporter 
 ```
 
 Instala grafana.
 
-```text
+**Relaynode1**
+
+```bash
 wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
 ```
+**Relaynode1**
 
-```text
+```bash
 echo "deb https://packages.grafana.com/oss/deb stable main" > grafana.list
 sudo mv grafana.list /etc/apt/sources.list.d/grafana.list
 ```
+**Relaynode1**
 
-```text
+```bash
 sudo apt-get update && sudo apt-get install -y grafana
-```
-
-Cambia el puerto de Grafana predeterminado de 3000 a 30000
-
-** Port 3000 is used by the block-producing node.**
-
-```text
-cd /etc/grafana
-sudo sed -i grafana.ini -e "s/;http_port = 3000/http_port = 30000/g"
 ```
 
 Habilita los servicios para que inicien de manera automática.
 
-```text
+**Relaynode1**
+
+```bash
 sudo systemctl enable grafana-server.service
 sudo systemctl enable prometheus.service
 sudo systemctl enable prometheus-node-exporter.service
 ```
 
+**Nodo Productor de Bloques**
+
+```
+sudo systemctl enable prometheus-node-exporter.service
+```
+
 Actualiza prometheus.yml ubicado en `/etc/prometheus/prometheus.yml`
 
-```text
+Cambia **&lt;block producer public ip address&gt;** en el siguiente comando.
+
+```bash
 cat > prometheus.yml << EOF
 global:
   scrape_interval:     15s # Predeterminadamente, extrae objetivos cada 15 segundos.
@@ -1554,14 +1587,14 @@ global:
     monitor: 'codelab-monitor'
 
 # Una configuración de extracción conteniendo exactamente un extremo a ser extraído:
-# EN este caso, es el mismo Prometheus.
+# En este caso, es el mismo Prometheus.
 scrape_configs:
   # El nombre del trabajo es agregado a la etiqueta job=<job_name> a cualquier series de tiempo extraídas de esta config.
   - job_name: 'prometheus'
 
     static_configs:
       - targets: ['localhost:9100']
-      - targets: ['localhost:12700']
+      - targets: ['<block producer public ip address>:12700']
         labels:
           alias: 'block-producing-node'
           type:  'cardano-node'
@@ -1569,15 +1602,13 @@ scrape_configs:
         labels:
           alias: 'relaynode1'
           type:  'cardano-node'
-      - targets: ['localhost:12702']
-        labels:
-          alias: 'relaynode2'
-          type:  'cardano-node'
 EOF
 sudo mv prometheus.yml /etc/prometheus/prometheus.yml
 ```
 
 Finalmente, reinicia los servicios.
+
+**Relaynode1**
 
 ```text
 sudo systemctl restart grafana-server.service
@@ -1593,25 +1624,41 @@ sudo systemctl status grafana-server.service prometheus.service prometheus-node-
 
 Actualiza los archivos de configuración `${NODE_CONFIG}-config.json` con los nuevos puertos de `hasEKG`  `hasPrometheus`.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cd $NODE_HOME
-sed -i ${NODE_CONFIG}-config.json -e "s/    12798/    12700/g" -e "s/hasEKG\": 12788/hasEKG\": 12600/g" 
-sed -i relaynode1/${NODE_CONFIG}-config.json -e "s/    12798/    12701/g" -e "s/hasEKG\": 12788/hasEKG\": 12601/g" 
-sed -i relaynode2/${NODE_CONFIG}-config.json -e "s/    12798/    12702/g" -e "s/hasEKG\": 12788/hasEKG\": 12602/g" 
+sed -i ${NODE_CONFIG}-config.json -e "s/    12798/    12700/g" -e "s/hasEKG\": 12788/hasEKG\": 12600/g"  
 ```
 
-Detén i reinicia tu stake pool.
+**Relaynode1**
 
-```text
+```bash
 cd $NODE_HOME
-./stopStakePool.sh
-./startStakePool.sh
-tmux a
+sed -i ${NODE_CONFIG}-config.json -e "s/    12798/    12701/g" -e "s/hasEKG\": 12788/hasEKG\": 12601/g" 
 ```
 
-### 📶 13.2 Configurando la Consola de Control de Grafana 
+Detén y reinicia tu stake pool.
 
-1. Abre [http://localhost:30000](http://localhost:30000) en tu explorador
+**Nodo Productor de Bloques**
+
+```bash
+cd $NODE_HOME
+killall cardano-node
+./startBlockProducingNode.sh
+```
+
+**Relaynode1**
+
+```bash
+cd $NODE_HOME
+killall cardano-node
+./startRelayNode1.sh
+```
+
+### 📶 16.2 Configurando la Consola de Control de Grafana 
+
+1. En relaynode1, abre [http://localhost:3000](http://localhost:3000) en tu explorador o http://&lt;dirección IP de tu nodo de tu relaynode1&gt;:3000 en tu explorador. Pueda que necesites habilitar el puerto 3000 router y/o firewall (cortafuegos).
 2. Inicia sesión con **admin** / **admin**
 3. Cambia la contraseña
 4. Click en el ícono de **engrane para configuración**, luego en **Add data Source**
@@ -1633,9 +1680,9 @@ Importa un **Nodo de Cardano** a la consola de control
 
 1. Click en el ícono **Create +** &gt; **Import**
 2. Agrega la consola de control usando **importing via panel json. Copy the json from below.**
-3. Click el botón **Import** .
+3. Click el botón **Import**.
 
-```text
+```bash
 {
   "annotations": {
     "list": [
@@ -2431,19 +2478,19 @@ Importa un **Nodo de Cardano** a la consola de control
 
 ¡Felicidades! Prometheus y Grafana están funcionando.
 
-## 👏 14. Agradeciemientos, Telegram de Coincashew y Material de Referencia
+## 👏 17. Agradeciemientos, Telegram de Coincashew y Material de Referencia
 
-### 😁 14.1 Agradecimientos
+### 😁 17.1 Agradecimientos
 
-"Gracias a todos +7000 y cada uno de ustedes, los hodlers de Cardano, constructores, stakers y operadores de pools por hacer del mejor futuro una realid."
+"Gracias a todos los 11000 y cada uno de ustedes, los hodlers de Cardano, constructores, stakers y operadores de pools por hacer del mejor futuro una realid."
 
 👏 "Agradecimiento especial a [Kaze-Stake](https://github.com/Kaze-Stake) por las *pull requests* y contribuciones de scripts automáticos."
 
-### \*\*\*\*💬 **14.2 Telegram Chat Channel**
+### \*\*\*\*💬 **17.2 Canal de Chat en Telegram**
 
 Este es el Telegram de **COINCASHEW**. Es un canal en **INGLÉS** [https://t.me/coincashew](https://t.me/coincashew)
 
-### 😊 14.3 Donaciones y Propinas
+### 😊 17.3 Donaciones y Propinas
 
 **PRIMERAMENTE, DONACIONES A COINCASHEW, LOS CREADORES DE LA ESTA GUÍA**
 "Apreciamos sinceramente todas las [donaciones](../../../contact-us/donations.md). 😁 ¡Gracias por apoyar a Cardano y a nosotros!" 
@@ -2461,7 +2508,34 @@ Si llegaron hasta aquí, ¡muchas felicidades por sus esfuerzos y paciencia! No 
 addr1q87d37clyu4ctaz5ah8lrjwzyrsrqvpt0u83wghvdl66ea6gvzmayvajt7rstn79xtcxmuxk84k3s0qypq7af74lfemsvlzktu
 ```
 
-### 📚 14.4 Material de Referencia
+### 🙃 17.4 Contribuyentes, Donadores y Stake Pool Amistosas de CoinCashew
+
+#### ✨ Contribuyentes a la Guía
+
+* 👏 Agradecimiento especial a Kaze-Stake por las pull requests y por las contribuciones de scripts de automatización.
+* 👏 The Legend of ₳da \[TLOA\] por traducir esta guía a Español.
+* 👏 Chris de OMEGA \| CODEX por las mejoras de seguridad.
+* 👏 Raymond de GROW por las mejoras del topologyUpdater y por ser genial.
+* 👏 Antonie de CNT por ser de mucha ayuda con el contenido de Youtube y en Telegram.
+
+#### 💸 Donadores de Propinas
+
+* 😊 BEBOP 
+* 😊 DEW
+* 😊 GROW
+* 😊 Leonardo
+
+#### 🚀Stake Pools Preferidas de CoinCashew
+
+* 🌟 OMEGA \| CODEX
+* 🌟 TLOA
+* 🌟 KAZE
+* 🌟 BEBOP
+* 🌟 DEW
+* 🌟 GROW
+* 🌟 CNT
+
+### 📚 17.5 Material de Referencia
 
 Para más información y documentación oficial, favor fererise a los siguientes enlaces (**en inglés**):
 
@@ -2479,9 +2553,9 @@ https://github.com/gitmachtl/scripts
 
 Varios operadores de pools han preguntado cómo crear una stake pool con CNTools. La [guía oficial la puedes encontrar aquí.](https://cardano-community.github.io/guild-operators/#/Scripts/cntools)
 
-## 🛠 15. Consejos Operacionales y de Mantenimiento
+## 🛠 18. Consejos Operacionales y de Mantenimiento
 
-### 🤖 15.1 Actualizando el certificado funcional con un nuevo Periodo KES
+### 🤖 18.1 Actualizando el certificado funcional con un nuevo Periodo KES
 
 Es obligatorio que recrees las llaves calientes y emitas un nuevo vertificado funcional, un proceso llamado rotando las llaves KES, cuando las laves calientes hayn caducado.
 
@@ -2489,65 +2563,69 @@ Es obligatorio que recrees las llaves calientes y emitas un nuevo vertificado fu
 
 **Actualizando el Periodo KES**: Cuando sea tiempo de emitir un nuevo certificado funcional, ejecuta lo siguiente:
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cd $NODE_HOME
-slotNo=$(cardano-cli shelley query tip $NETWORK_IDENTIFIER | jq -r '.slotNo')
+slotNo=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 slotsPerKESPeriod=$(cat $NODE_HOME/${NODE_CONFIG}-shelley-genesis.json | jq -r '.slotsPerKESPeriod')
 kesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
-chmod u+rwx ~/cold-keys
+chmod u+rwx $HOME/cold-keys
 cardano-cli shelley node issue-op-cert \
     --kes-verification-key-file kes.vkey \
-    --cold-signing-key-file ~/cold-keys/node.skey \
-    --operational-certificate-issue-counter ~/cold-keys/node.counter \
+    --cold-signing-key-file $HOME/cold-keys/node.skey \
+    --operational-certificate-issue-counter $HOME/cold-keys/node.counter \
     --kes-period ${kesPeriod} \
     --out-file node.cert
-chmod a-rwx ~/cold-keys
+chmod a-rwx $HOME/cold-keys
 ```
+
+Copia **node.cert** a tu nodo productor de bloques.
 
 \*\*\*\*✨ **Consejo:** Con tus llaves calientes creadas, puede remover el acceso a las llaves frías para mejorar la seguridad. Esto te protege contra la eliminación o alteración accidental, y el acceso no deseado. 
 
 Para bloquear,
 
-```text
-chmod a-rwx ~/cold-keys
+```bash
+chmod a-rwx $HOME/cold-keys
 ```
 
 Para desbloquear,
 
-```text
-chmod u+rwx ~/cold-keys
+```bash
+chmod u+rwx $HOME/cold-keys
 ```
 
-### 🔥 15.2 Reseteando la instalación
+### 🔥 18.2 Reseteando la instalación
 
 ¿Quieres un inicio limpio? ¿Estás reusando un servidor existente? ¿La blockchain ha sido forked?
 
 Elimina la carpeta git, y luego renombra tu carpetas anteriores `$NODE_HOME` y `cold-keys` \(u opcionalmente, remúevelas\). Ahora puedes comenzar con esta guía desde el inicio nuevamente.
 
-```text
-rm -rf ~/git/cardano-node/ ~/git/libsodium/
+```bash
+rm -rf $HOME/git/cardano-node/ $HOME/git/libsodium/
 mv $NODE_HOME $(basename $NODE_HOME)_backup_$(date -I)
-mv ~/cold-keys ~/cold-keys_backup_$(date -I)
+mv $HOME/cold-keys $HOME/cold-keys_backup_$(date -I)
 ```
 
-### 🌊 15.3 Reseteando las bases de datos
+### 🌊 18.3 Reseteando las bases de datos
 
 ¿Archivos corruptos o blockchain estancada? Elimina todas las carpetas db.
 
-```text
+```bash
 cd $NODE_HOME
 rm -rf db
-rm -rf relaynode1/db
-rm -rf relaynode2/db
 ```
 
-### 📝 15.4 Modificando el pledge, los costos operacionales, el margen del pool, etc.
+### 📝 18.4 Modificando el pledge, los costos operacionales, el margen del pool, etc.
 
 ¿Necesitas cambiar tu pledge, los costos operacionales, el margen del pool, pool IP/puerto, o los metadatos? Simplemente reenvía tu certificado de registro de tu stake pool.
 
 Encuentra el costo mínimo del pool.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 minPoolCost=$(cat $NODE_HOME/params.json | jq -r .minPoolCost)
 echo minPoolCost: ${minPoolCost}
 ```
@@ -2556,26 +2634,32 @@ minPoolCost es de 340000000 lovelace o 340 ADA. Por lo tanto, tu `--pool-cost` d
 
 Si vas a modificar tu poolMetaData.json, recuerda calcular el hash de tu archivo de metadato y reenvía el archivo poolMetaData.json actualizado. Refiérete a la [sección 9 para información.](./#9-register-your-stakepool) Si estás verificando tu stake pool ID, el hash te es proporcionado por pooltool.
 
+**Nodo Productor de Bloques**
+
 ```text
 cardano-cli shelley stake-pool metadata-hash --pool-metadata-file poolMetaData.json > poolMetaDataHash.txt
 ```
 
 Actualiza con tus configuración deseada la siguiente transacción para registrar el certificado.
 
+Si tienes **múltiples nodos de relevo**, **refiérete a la sección 12 de esta guía** y cambia tus parámetros de manera apropiada.
+
 **metadata-url** no debe de exceder los 64 caracteres.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley stake-pool registration-certificate \
-    --cold-verification-key-file ~/cold-keys/node.vkey \
+    --cold-verification-key-file $HOME/cold-keys/node.vkey \
     --vrf-verification-key-file vrf.vkey \
     --pool-pledge 1000000000 \
     --pool-cost 345000000 \
     --pool-margin 0.20 \
     --pool-reward-account-verification-key-file stake.vkey \
     --pool-owner-stake-verification-key-file stake.vkey \
-    $NETWORK_IDENTIFIER \
-    --pool-relay-port 3001 \
-    --pool-relay-ipv4 <your relay IP address> \
+    --mainnet \
+    --single-host-pool-relay <dns based relay, example ~ relaynode1.myadapoolnamerocks.com> \
+    --pool-relay-port 6000 \
     --metadata-url <url where you uploaded poolMetaData.json> \
     --metadata-hash $(cat poolMetaDataHash.txt) \
     --out-file pool.cert
@@ -2585,26 +2669,34 @@ Aquí nuestra pledge es de 1000 ADA con un costo fijo de 345 ADA y un margen del
 
 Vamos a stake nuestro pledge al pool.
 
+**Máquina fuera de línea, aislada del internet**
+
 ```text
 cardano-cli shelley stake-address delegation-certificate \
     --staking-verification-key-file stake.vkey \
-    --cold-verification-key-file ~/cold-keys/node.vkey \
+    --cold-verification-key-file $HOME/cold-keys/node.vkey \
     --out-file deleg.cert
 ```
 
+Copia **deleg.cert** a tu **ambiente caliente**.
+
 Necesitas encontrar el **tip** de la blockchain para establecer el parámetro **ttl** adecuadamente.
 
-```
-currentSlot=$(cardano-cli shelley query tip $NETWORK_IDENTIFIER | jq -r '.slotNo')
+**Nodo Productor de Bloques**
+
+```bash
+currentSlot=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 echo Current Slot: $currentSlot
 ```
 
 Encuentra tu saldo y **UTXOs**.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query utxo \
     --address $(cat payment.addr) \
-    $NETWORK_IDENTIFIER > fullUtxo.out
+    --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
 
@@ -2622,15 +2714,17 @@ while read -r utxo; do
     tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
 done < balance.out
 txcnt=$(cat balance.out | wc -l)
-echo Total ADA balance: ${total_balance}
-echo Number of UTXOs: ${txcnt}
+echo Saldo Total de ADA: ${total_balance}
+echo Numero de UTXOs: ${txcnt}
 ```
 
 Ejecuta el comando de transacción build-raw.
 
 El valor del **ttl** debe de ser mayor al tip actual. En este ejemplo, usamos el slot actual + 10000. 
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${total_balance} \
@@ -2643,28 +2737,34 @@ cardano-cli shelley transaction build-raw \
 
 Calcula el costo mínimo a pagar:
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 fee=$(cardano-cli shelley transaction calculate-min-fee \
     --tx-body-file tx.tmp \
     --tx-in-count ${txcnt} \
     --tx-out-count 1 \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --witness-count 3 \
     --byron-witness-count 0 \
     --protocol-params-file params.json | awk '{ print $1 }')
-echo fee: $fee
+echo costoMinimo: $fee
 ```
 
 Calcula el output de tu cambio.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 txOut=$((${total_balance}-${fee}))
 echo txOut: ${txOut}
 ```
 
 Construye la transacción.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
@@ -2675,34 +2775,42 @@ cardano-cli shelley transaction build-raw \
     --out-file tx.raw
 ```
 
+Copia **tx.raw** a tu **ambiente frío**.
+
 Firma la transacción.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley transaction sign \
     --tx-body-file tx.raw \
     --signing-key-file payment.skey \
-    --signing-key-file ~/cold-keys/node.skey \
+    --signing-key-file $HOME/cold-keys/node.skey \
     --signing-key-file stake.skey \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --out-file tx.signed
 ```
 
 Envía la transacción.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction submit \
     --tx-file tx.signed \
-    $NETWORK_IDENTIFIER
+    --mainnet
 ```
 
 Los cambios tomarán efecto a partir de la siguiente epoch. Luego de la transición de la siguiente epoch, verifica que las opciones de tu pool sean las correctas.
 
-```text
-cardano-cli shelley query ledger-state $NETWORK_IDENTIFIER --out-file ledger-state.json
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query ledger-state --mainnet --out-file ledger-state.json
 jq -r '.esLState._delegationState._pstate._pParams."'"$(cat stakepoolid.txt)"'"  // empty' ledger-state.json
 ```
 
-### 🧩 15.5 Transfiriendo archivos via SSH
+### 🧩 18.5 Transfiriendo archivos via SSH
 
 Algunos casos en los que lo necesitarás incluyen
 
@@ -2711,7 +2819,7 @@ Algunos casos en los que lo necesitarás incluyen
 
 #### Para descargar arachivos de un nodo a tu PC local
 
-```text
+```bash
 ssh <USUARIO>@<DIRECCIÓN IP> -p <PUERTO-SSH>
 rsync -avzhe “ssh -p <PUERTO-SSH>” <USUARIO>@<DIRECCIÓN IP>:<PATH REMITENTE DEL NODO> <PATH DESTINATARIO EN EL PC LOCAL>
 ```
@@ -2724,7 +2832,7 @@ rsync -avzhe “ssh -p <PUERTO-SSH>” <USUARIO>@<DIRECCIÓN IP>:<PATH REMITENTE
 
 #### Para enviar archivos desde tu PC local a tu nodo
 
-```text
+```bash
 ssh <USUARIO>@<DIRECCIÓN IP> -p <PUERTO-SSH>
 rsync -avzhe “ssh -p <PUERTO-SSH>” <PATH REMITENTE A TU PC LOCAL> <USUARIO>@<DIRECCIÓN IP>:<PATH DESTINATARIO DEL NODO>
 ```
@@ -2735,11 +2843,11 @@ rsync -avzhe “ssh -p <PUERTO-SSH>” <PATH REMITENTE A TU PC LOCAL> <USUARIO>@
 >
 > `rsync -avzhe "ssh -p 12345" ./node.cert miusuario@6.1.2.3:/home/miusuario/cardano-my-node/node.cert`
 
-### 🏃♂ 15.6 Auto-arranque con servicios systemd
+### 🏃♂ 18.6 Auto-inicio con servicios systemd
 
 #### 🍰 Beneficios de usar systemd para tu stake pool
 
-1. Auto-arranca tu stake pool caundo la computadora se reinicia debido a mantenimiento, apagón, etc.
+1. Auto-inicia tu stake pool caundo la computadora se reinicia debido a mantenimiento, apagón, etc.
 2. Automáticamente reinicia procesos fallido de tu stake pool.
 3. Maximiza el tiempo útil y el rendimiento de tu stake pool.
 
@@ -2747,95 +2855,129 @@ rsync -avzhe “ssh -p <PUERTO-SSH>” <PATH REMITENTE A TU PC LOCAL> <USUARIO>@
 
 Antes de comenzar, asegúrate que tu pool esté detenido.
 
-```text
-$NODE_HOME/stopStakePool.sh
+```bash
+killall cardano-node
 ```
 
 Ejecuta lo siguiente para crear una **unidad de archivo** para definir tu configuración de `cardano-stakepool.service`
 
-```text
-cat > $NODE_HOME/cardano-stakepool.service << EOF 
-# The Cardano Stakepool service (part of systemd)
-# file: /etc/systemd/system/cardano-stakepool.service 
+**Nodo Productor de Bloques**
+
+```bash
+cat > $NODE_HOME/cardano-node.service << EOF 
+# The Cardano node service (part of systemd)
+# file: /etc/systemd/system/cardano-node.service 
 
 [Unit]
-Description     = Cardano Stakepool Service
+Description     = Cardano node service
 Wants           = network-online.target
 After           = network-online.target 
 
 [Service]
 User            = $(whoami)
 Type            = forking
-WorkingDirectory= /home/$(whoami)/
-ExecStart       = $NODE_HOME/startStakePool.sh
-ExecStop        = $NODE_HOME/stopStakePool.sh
-ExecReload      = $NODE_HOME/stopStakePool.sh && $NODE_HOME/startStakePool.sh
+WorkingDirectory= $NODE_HOME
+ExecStart       = /usr/bin/tmux new -d -s cnode
+ExecStartPost   = /usr/bin/tmux send-keys -t cnode $NODE_HOME/startBlockProducingNode.sh Enter 
+ExecStop        = killall cardano-node
 Restart         = always
 
 [Install]
-WantedBy	= multi-user.target
+WantedBy  = multi-user.target
+EOF
+```
+
+**Relaynode1**
+
+```bash
+cat > $NODE_HOME/cardano-node.service << EOF 
+# The Cardano node service (part of systemd)
+# file: /etc/systemd/system/cardano-node.service 
+
+[Unit]
+Description     = Cardano node service
+Wants           = network-online.target
+After           = network-online.target 
+
+[Service]
+User            = $(whoami)
+Type            = forking
+WorkingDirectory= $NODE_HOME
+ExecStart       = /usr/bin/tmux new -d -s cnode
+ExecStartPost   = /usr/bin/tmux send-keys -t cnode $NODE_HOME/startRelayNode1.sh Enter 
+ExecStop        = killall cardano-node
+Restart         = always
+
+[Install]
+WantedBy  = multi-user.target
 EOF
 ```
 
 Copia la unidad de archivo a `/etc/systemd/system` y otórgale permisos.
 
-```text
-sudo cp $NODE_HOME/cardano-stakepool.service /etc/systemd/system/cardano-stakepool.service
+```bash
+sudo cp $NODE_HOME/cardano-node.service /etc/systemd/system/cardano-node.service
 ```
 
-```text
-sudo chmod 644 /etc/systemd/system/cardano-stakepool.service
+```bash
+sudo chmod 644 /etc/systemd/system/cardano-node.service
 ```
 
-Ejecuta lo siguiente para habilitar el auto-arranque al momento de encender la computadora y luego iniciar tu servicio del stake pool.
+Ejecuta lo siguiente para habilitar el auto-inicio al momento de encender la computadora y luego iniciar tu servicio del stake pool.
 
 ```text
 sudo systemctl daemon-reload
-sudo systemctl enable cardano-stakepool
-sudo systemctl start cardano-stakepool
+sudo systemctl enable cardano-node
+sudo systemctl start cardano-node
 ```
 
 Bien hecho. Tu stake pool ahora es dirigida por la fiabilidad y solidez de systemd. Acontinuacióin encontrarás algunos comandos para usar con systemd.
 
-#### 📎 Vuelve a adjuntarte a la sesión tmux de tu stake pool luego del inicio del sistema.
+\*\*\*\*⛓ Vuelve a adjuntarte a la sesión tmux de tu stake pool luego del inicio del sistema.
 
 ```text
 tmux a
 ```
 
-#### ✅ Chequear si el servicio del stake pool está activo
+#### 🚧 Sepárate de la sesión **tmux** y deja el nodo ejecutándose en el fondo
 
 ```text
-sudo systemctl is-active cardano-stakepool
+press Ctrl + b + d
+```
+
+#### ✅ Chequear si el nodo del stake pool está activo
+
+```text
+sudo systemctl is-active cardano-node
 ```
 
 #### 🔎 Ver el estado del servicio del stake pool
 
 ```text
-sudo systemctl status cardano-stakepool
+sudo systemctl status cardano-node
 ```
 
 #### 🔄 Reiniciar el servicio del stake pool
 
 ```text
-sudo systemctl reload-or-restart cardano-stakepool
+sudo systemctl reload-or-restart cardano-node
 ```
 
 #### 🛑 Deteniendo el servicio del stake pool
 
 ```text
-sudo systemctl stop cardano-stakepool
+sudo systemctl stop cardano-node
 ```
 
 #### 🗄 Filtrando registros
 
-```text
-journalctl --unit=cardano-stakepool --since=yesterday
-journalctl --unit=cardano-stakepool --since=today
-journalctl --unit=cardano-stakepool --since='2020-07-29 00:00:00' --until='2020-07-29 12:00:00'
+```bash
+journalctl --unit=cardano-node --since=yesterday
+journalctl --unit=cardano-node --since=today
+journalctl --unit=cardano-node --since='2020-07-29 00:00:00' --until='2020-07-29 12:00:00'
 ```
 
-### ✅ 15.7 Verifica el ticker de tu stake pool con la llave de ITN
+### ✅ 18.7 Verifica el ticker de tu stake pool con la llave de ITN
 
 Para defender contra falsificación y apropiación de las stake pools con buena reputación, un dueño puede verificar su ticker proporcionando titularidad de un stake pool en ITN.
 
@@ -2843,7 +2985,9 @@ La fase de la Testnet Incentivada de la era Shelley de Cardano se llevó a cabo 
 
 Asegúrate que los binarios `jcli` de la ITN estén presentes en `$NODE_HOME`. Usa `jcli` para firmar tu stake pook id con tu `itn_owner.skey`
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 ./jcli key sign --secret-key itn_owner.skey stakepoolid.txt --output stakepoolid.sig
 ```
 
@@ -2851,19 +2995,21 @@ Visita [pooltool.io](https://pooltool.io/) e introduce tu llaver pública de pro
 
 Encuentra tu testigo de pool id con el siguiente comando.
 
+**Máquina fuera de línea, aislada del internet**
+
 ```text
 cat stakepoolid.sig
 ```
 
 Encuentra tu llave pública de propietario en el archivo que creaste en la ITN. Estos datos pueden ser almacenados en un archivo con terminación `.pub`
 
-Finalmete, realiza las [instrucciones de la sección 15.4 para actualizar los datos del registro de tu pool](./#15-4-changing-the-pledge-fee-margin-etc) con el **`metadata-url`** y el **`metadata-hash`** generados por pooltool . Nota que los metadatos tienen un campo "expandible" lo cual comprueba la titularidad de tu ticker desde ITN.
+Finalmete, realiza las instrucciones de la sección 18.4 para actualizar los datos del registro de tu pool con el **`metadata-url`** y el **`metadata-hash`** generados por pooltool . Nota que los metadatos tienen un campo "expandible" lo cual comprueba la titularidad de tu ticker desde ITN.
 
-### 📚 15.8 Actualizando os archivos de configuración de tu nodo
+### 📚 18.8 Actualizando los archivos de configuración de tu nodo
 
-Manten tus archivos de configuración recientes descargando los archivos .json más recientes.
+Manten tus archivos de configuración actualizados descargando los archivos .json más recientes.
 
-```text
+```bash
 NODE_BUILD_NUM=$(curl https://hydra.iohk.io/job/Cardano/iohk-nix/cardano-deployment/latest-finished/download/1/index.html | grep -e "build" | sed 's/.*build\/\([0-9]*\)\/download.*/\1/g')
 cd $NODE_HOME
 wget -N https://hydra.iohk.io/build/${NODE_BUILD_NUM}/download/1/${NODE_CONFIG}-byron-genesis.json
@@ -2874,32 +3020,209 @@ sed -i ${NODE_CONFIG}-config.json \
     -e "s/TraceBlockFetchDecisions\": false/TraceBlockFetchDecisions\": true/g"
 ```
 
-## 🌜 16. Retirando tu stake pool
+### 💸 18.9 Ejemplo de enviar una simple transacción
+
+Veamos el ejemplo de enviar **10 ADA** a la **dirección de donaciones de CoinCashew** o la **dirección de donaciones de The Legend of ₳da [TLOA]** 🙃 
+
+Primeramente, consulta el **tip** de la blockchain para tener el parámetro **ttl** apropiado.
+
+**Nodo Productor de Bloques**
+
+```bash
+currentSlot=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
+echo Slot Actual: $currentSlot
+```
+
+Decide la cantidad a enviar en lovelaces. ✨ Recuerda que **1 ADA** = **1,000,000 lovelaces**.
+
+**Nodo Productor de Bloques**
+
+```bash
+amountToSend=10000000
+echo MontoAEnviar: $amountToSend
+```
+
+Estable la dirección destinataria, a la cual enviarás los fondos.
+
+**Nodo Productor de Bloques**
+
+**Para enviar 10 ADA a CoinCashew, usa el siguiente comando:**
+
+```bash
+destinationAddress=addr1qxhazv2dp8yvqwyxxlt7n7ufwhw582uqtcn9llqak736ptfyf8d2zwjceymcq6l5gxht0nx9zwazvtvnn22sl84tgkyq7guw7q
+echo direccionDestinataria: $destinationAddress
+```
+
+**Para enviar 10 ADA a The Legend of ₳da, usa el siguiente comando:**
+
+```bash
+destinationAddress=addr1q87d37clyu4ctaz5ah8lrjwzyrsrqvpt0u83wghvdl66ea6gvzmayvajt7rstn79xtcxmuxk84k3s0qypq7af74lfemsvlzktu
+echo direccionDestinataria: $destinationAddress
+```
+
+**Nodo Productor de Bloques**
+
+Consulta tu saldo y **UTXOs**.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query utxo \
+    --address $(cat payment.addr) \
+    --mainnet > fullUtxo.out
+
+tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
+
+cat balance.out
+
+tx_in=""
+total_balance=0
+while read -r utxo; do
+    in_addr=$(awk '{ print $1 }' <<< "${utxo}")
+    idx=$(awk '{ print $2 }' <<< "${utxo}")
+    utxo_balance=$(awk '{ print $3 }' <<< "${utxo}")
+    total_balance=$((${total_balance}+${utxo_balance}))
+    echo TxHash: ${in_addr}#${idx}
+    echo ADA: ${utxo_balance}
+    tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
+done < balance.out
+txcnt=$(cat balance.out | wc -l)
+echo Saldo Total de ADA: ${total_balance}
+echo Numero de UTXOs: ${txcnt}
+```
+
+Ejecuta el comando de build-raw.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley transaction build-raw \
+    ${tx_in} \
+    --tx-out $(cat payment.addr)+0 \
+    --tx-out ${destinationAddress}+0 \
+    --ttl $(( ${currentSlot} + 10000)) \
+    --fee 0 \
+    --out-file tx.tmp
+```
+
+Calcula el cosot mínimo actual:
+
+**Nodo Productor de Bloques**
+
+```bash
+fee=$(cardano-cli shelley transaction calculate-min-fee \
+    --tx-body-file tx.tmp \
+    --tx-in-count ${txcnt} \
+    --tx-out-count 2 \
+    --mainnet \
+    --witness-count 1 \
+    --byron-witness-count 0 \
+    --protocol-params-file params.json | awk '{ print $1 }')
+echo costoMinimo: $fee
+```
+
+Calcula el output de tu cambio.
+
+**Nodo Productor de Bloques**
+
+```bash
+txOut=$((${total_balance}-${fee}-${amountToSend}))
+echo Change Output: ${txOut}
+```
+
+Construye tu transacción. 
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley transaction build-raw \
+    ${tx_in} \
+    --tx-out $(cat payment.addr)+${txOut} \
+    --tx-out ${destinationAddress}+${amountToSend} \
+    --ttl $(( ${currentSlot} + 10000)) \
+    --fee ${fee} \
+    --out-file tx.raw
+```
+
+Copia **tx.raw** a tu **ambiente frío**
+
+Firma la transacción con ambas llaves de pago y de stake.
+
+**Máquina fuera de línea, aislada del internet**
+
+```bash
+cardano-cli shelley transaction sign \
+    --tx-body-file tx.raw \
+    --signing-key-file payment.skey \
+    --signing-key-file stake.skey \
+    --mainnet \
+    --out-file tx.signed
+```
+
+Copia **tx.signed** a tu **ambiente caliente**.
+
+Envía la transacción firmada.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley transaction submit \
+    --tx-file tx.signed \
+    --mainnet
+```
+
+Revisa que los fondos hayan llegado.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query utxo \
+    --address ${destinationAddress} \
+    --mainnet
+```
+
+Deberías de recibir un output similar a el siguiente, mostrando los fondos que enviaste.
+
+```text
+                           TxHash                                 TxIx        Lovelace
+----------------------------------------------------------------------------------------
+100322a39d02c2ead....                                              0        10000000
+```
+
+## 🌜 19. Retirando tu stake pool
 
 Encuentra los slots por epoch.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 epochLength=$(cat $NODE_HOME/${NODE_CONFIG}-shelley-genesis.json | jq -r '.epochLength')
 echo epochLength: ${epochLength}
 ```
 
- Encuentra el slot actual consultando el tip.
+Encuentra el slot actual consultando el tip.
 
-```text
-slotNo=$(cardano-cli shelley query tip $NETWORK_IDENTIFIER | jq -r '.slotNo')
+**Nodo Productor de Bloques**
+
+```bash
+slotNo=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 echo slotNo: ${slotNo}
 ```
 
 Calcula la epoch actual dividiendo el número del tip en el slot por la epochLength.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 epoch=$(( $((${slotNo} / ${epochLength})) + 1))
 echo current epoch: ${epoch}
 ```
 
 Encuentra el valor de eMax.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 eMax=$(cat $NODE_HOME/params.json | jq -r '.eMax')
 echo eMax: ${eMax}
 ```
@@ -2913,20 +3236,25 @@ Pretendamos quye deseamos retirarnos lo más pronto posible en la epoch 40.
 
 Crea el certificado de cancelación de registro y guárdalo como `pool.dereg`:
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley stake-pool deregistration-certificate \
---cold-verification-key-file ~/cold-keys/node.vkey \
+--cold-verification-key-file $HOME/cold-keys/node.vkey \
 --epoch $((${epoch} + 1)) \
 --out-file pool.dereg
 echo pool will retire at end of epoch: $((${epoch} + 1))
 ```
+Copia **pool.dereg** a tu**ambiente caliente**.
 
 Encuentra tu saldo y **UTXOs**.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query utxo \
     --address $(cat payment.addr) \
-    $NETWORK_IDENTIFIER > fullUtxo.out
+    --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
 
@@ -2944,15 +3272,17 @@ while read -r utxo; do
     tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
 done < balance.out
 txcnt=$(cat balance.out | wc -l)
-echo Total ADA balance: ${total_balance}
-echo Number of UTXOs: ${txcnt}
+echo Saldo Total de ADA: ${total_balance}
+echo Numero de UTXOs: ${txcnt}
 ```
 
 Ejecuta el comando de transacción build-raw.
 
-El calor del **ttl** debe de ser mayor al tip actual. En este ejemplo, usamos el slot actual + 10000. 
+El valor del **ttl** debe de ser mayor al tip actual. En este ejemplo, usamos el slot actual + 10000. 
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${total_balance} \
@@ -2964,28 +3294,34 @@ cardano-cli shelley transaction build-raw \
 
 Calcula el costo a pagar:
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 fee=$(cardano-cli shelley transaction calculate-min-fee \
     --tx-body-file tx.tmp \
     --tx-in-count ${txcnt} \
     --tx-out-count 1 \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --witness-count 2 \
     --byron-witness-count 0 \
     --protocol-params-file params.json | awk '{ print $1 }')
-echo fee: $fee
+echo costo: $fee
 ```
 
 Calcula el output de tu cambio.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 txOut=$((${total_balance}-${fee}))
 echo txOut: ${txOut}
 ```
 
 Construye la transacción.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
@@ -2995,33 +3331,41 @@ cardano-cli shelley transaction build-raw \
     --out-file tx.raw
 ```
 
+Copia **tx.raw** a tu **ambiente frío**.
+
 Firma la transacción.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley transaction sign \
     --tx-body-file tx.raw \
     --signing-key-file payment.skey \
-    --signing-key-file ~/cold-keys/node.skey \
-    $NETWORK_IDENTIFIER \
+    --signing-key-file $HOME/cold-keys/node.skey \
+    --mainnet \
     --out-file tx.signed
 ```
 
 Envía la transacción.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction submit \
     --tx-file tx.signed \
-    $NETWORK_IDENTIFIER
+    --mainnet
 ```
 
 Tu pool será retirado al final de tu epoch especificada. En este ejemplo, el retiro ocurrirá al final de la epoch 40. 
 
-Si cambia de parecer, puede crear y envair un nuevo certificado de registro antes de que termine la epoch 40, lo cual anulará el certificado de cancelación de registro.
+Si cambias de parecer, puedes crear y enviar un nuevo certificado de registro antes de que termine la epoch 40, lo cual anulará el certificado de cancelación de registro.
 
 Luego de la epoch de retiro, puede verificar que el pool fuer retirado exitosamente utilizando el siguiente comando el cual debería de regresar una cadena vacía.
 
-```text
-cardano-cli shelley query ledger-state $NETWORK_IDENTIFIER --out-file ledger-state.json
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query ledger-state --mainnet --out-file ledger-state.json
 jq -r '.esLState._delegationState._pstate._pParams."'"$(cat stakepoolid.txt)"'"  // empty' ledger-state.json
 ```
 
