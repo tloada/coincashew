@@ -11,52 +11,66 @@ TRADUCIDA POR: >-
 ---
 ---
 Descripción: >-
-  En Ubuntu/Debian, esta guía ilustrará cómo instalar y configurar un
-  stake pool de Cardano usando el código fuente.
+  En Ubuntu/Debian, esta guía ilustrará cómo instalar y configurar un stake pool de Cardano usando el código fuente con una configuración de **un (1)
+nodo productor de bloques y un (1) nodo de relevo**.
 ---
 
 # Guía: Cómo construir un Stake Pool de Cardano
 
 
-A partir del 28 de julio, 2020, esta guía está escrita para **mainnet** con **edición v.1.18.0** 😁 
+A partir del 11 de agosto, 2020, esta guía está escrita para **mainnet** con **edición v.1.18.0** 😁 
 
 ## 🏁 0. Prerequisitos
 
-### 🧙♂ Habilidades de los operadores de stake pool
+### 🧙♂ Habilidades obligatorias de los operadores de stake pool
 
-Como un operador de stake pool de Cardano, típicamente tendrás las siguientes habilidades:
+Como un operador de stake pool de Cardano, deberás contar con las siguientes habilidades:
 
 * conocimiento operacional de cómo instalar, operar y mantener un nodo de Cardano continuamente
 * un compromiso a mantenera tu nodo 24/7/365
 * habilidades de sistemas operativos
 * habilidades de administración de servidores \(operacionales y mantenimiento\)
-* experiencia de desarrollo y operaciones \(DevOps\) sería muy útil
+* experiencia de desarrollo y operaciones \(DevOps\)
+* experiencia de cómo [endurecer ](https://www.lifewire.com/harden-ubuntu-server-security-4178243)y [asegurar un servidor](https://gist.github.com/lokhman/cc716d2e2d373dd696b2d9264c0287a3).
+* [aprobar el curso oficial de la Escuela de Stake Pool](https://cardano-foundation.gitbook.io/stake-pool-course/)
+
+🛑 **Antes de continuar con esta guía, debes de satisfacer las habilidades requeridas mencionadas anteriormente.** 🚧 
 
 ### 🎗 Requerimientos Mínimos del Equipo
 
+* **Dos servidores independientes:** 1 para tu nodo productor de bloques, 1 para tu nodo de relevo
+* **Una máquina fuera de línea, totalmente aislada del internet \(ambiente frío\)**
 * **Sistema Operativo:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
-* **Procesador:** CPU con doble núcleo
-* **Memoria RAM:** 4GB
-* **Disco Duro:** 24GB
-* **Internet:** conexión 24/7 a internet con banda ancha con velocidades de al menos 1 Mbps.
+* **Procesador:** CPU con cuádruple núcleo
+* **Memoria RAM:** 8GB
+* **Disco Duro:** 20GB SSD
+* **Internet:** conexión 24/7 a internet con banda ancha con velocidades de al menos 10 Mbps.
 * **Plan de Datos**: como mínimo 1GB por hora. 720GB cada mes.
 * **Electricidad:** energía eléctrica 24/7
-* **Saldo de ADA:** como mínimo 1000 ADA
+* **Saldo de ADA:** como mínimo 505 ADA
 
 ### 🏋♂ Equipo Recomendado para Largo Plazo
 
+* **Tres servidores independientes:** 1 para tu nodo productor de bloques, 2 para tus nodos de relevo
+* **Una máquina fuera de línea, totalmente aislada del internet \(ambiente frío\)**
 * **Sistema Operativo:** 64-bit Linux \(i.e. Ubuntu 20.04 LTS\)
-* **Procesador:** CPU con cuádruple núcleo o mejor
-* **Memoria RAM:** 16GB
-* **Disco Duro:** 500GB SSD con RAID
-* **Internet:** Múltiples conexiones 24/7 a internet con banda ancha con velocidades de al menos 10 Mbps \(i.e. fibra + celular 4G\)
+* **Procesador:** CPU con óctuple núcleo o mejor
+* **Memoria RAM:** 16GB+
+* **Disco Duro:** 1TB SSD
+* **Internet:** conexión 24/7 a internet con banda ancha con velocidades de al menos 100 Mbps.
 * **Plan de Datos**: como mínimo 1GB por hora. 720GB cada mes.
 * **Electricidad:** energía eléctrica redundante 24/7 con SAI
 * **Saldo de ADA:** más pledge es mejor, será determinado por **a0**, el factor que influye al pledge
 
-Nota que la velocidad del pprocesador no es un factor determinante para dirigir un stake pool.
+Nota que la velocidad del procesador no es un factor determinante para dirigir un stake pool.
 
-Si estás reconstruyendo o reusando una instalción existente de `cardano-node`, [refiérete a la sección 15.2 de cómo resetear la instalación](./#15-2-resetting-the-installation)
+### 🔓 Seguridad Recomendada para los Nodos
+
+Si necesitas ideas para cómo endurecer los nodos en tus servidores, refiérete [a esta corta guía](https://www.coincashew.com/coins/overview-ada/guide-how-to-build-a-haskell-stakepool-node/how-to-harden-ubuntu-server).
+
+### 🧱 Reconstruyendo los Nodos
+
+Si estás reconstruyendo o reusando una instalción existente de `cardano-node`, refiérete a la sección 15.2 en esta guía de cómo resetear la instalación.
 
 ## 🏭 1. Instala Cabal y GHC
 
