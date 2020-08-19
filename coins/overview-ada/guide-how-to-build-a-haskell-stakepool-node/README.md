@@ -1026,19 +1026,21 @@ para ser ejecutada de manera apropiada en tu máquina fuera de línea, aislada d
 
 **metadata-url** no debe de exceder los 64 caracteres.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley stake-pool registration-certificate \
-    --cold-verification-key-file ~/cold-keys/node.vkey \
+    --cold-verification-key-file $HOME/cold-keys/node.vkey \
     --vrf-verification-key-file vrf.vkey \
     --pool-pledge 100000000 \
     --pool-cost 345000000 \
     --pool-margin 0.15 \
     --pool-reward-account-verification-key-file stake.vkey \
     --pool-owner-stake-verification-key-file stake.vkey \
-    $NETWORK_IDENTIFIER \
-    --pool-relay-port 3001 \
-    --pool-relay-ipv4 <your relay IP address> \
-    --metadata-url <url where you uploaded poolMetaData.json> \
+    --mainnet \
+    --single-host-pool-relay <relevo basado en DNS, ejemplo ~ relevo1.mipoolesgenial.com> \
+    --pool-relay-port 6000 \
+    --metadata-url <url donde subiste tu archivo poolMetaData.json> \
     --metadata-hash $(cat poolMetaDataHash.txt) \
     --out-file pool.cert
 ```
