@@ -387,12 +387,16 @@ Las **llaves frías** deberán de ser creadas y almacenadas en tu máquina fuera
 
 Crea una carpeta para alamcenar tus llaves frías.
 
+**Ambiente Frío**
+
 ```text
 mkdir $HOME/cold-keys
 pushd $HOME/cold-keys
 ```
 
 Crea un set de llaves frías y crea el archivo contador frío.
+
+**Ambiente Frío**
 
 ```bash
 cardano-cli shelley node key-gen \
@@ -405,6 +409,8 @@ Asegúrate de **respaldar todas tus llaves** a otro dispositivo de almacenamient
 
 Determina el número de slots por periodo KES usando el archivo génesis.
 
+**Nodo Productor de Bloques**
+
 ```bash
 pushd +1
 slotsPerKESPeriod=$(cat $NODE_HOME/${NODE_CONFIG}-shelley-genesis.json | jq -r '.slotsPerKESPeriod')
@@ -413,12 +419,16 @@ echo slotsPerKESPeriod: ${slotsPerKESPeriod}
 
 **Antes de continuar, tu nodo debe de estar completamente sincronizado a la blockchain. De lo contrario, no podrás calcular el periodo KES actual. Tu nodo está sincronizado cuando la _epoch_ y _slot\#_ son iguales a los que se encuentran en un explorador de bloques como [https://pooltool.io/](https://pooltool.io/)**
 
+**Nodo Productor de Bloques**
+
 ```bash
 slotNo=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 echo slotNo: ${slotNo}
 ```
 
 Encuentra el kesPeriod dividiendo el número del slot tip por el slotsPerKESPeriod.
+
+**Nodo Productor de Bloques**
 
 ```bash
 kesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
@@ -427,20 +437,30 @@ echo kesPeriod: ${kesPeriod}
 
 Con este cálculo, puedes crear un certificado funcional para tu pool.
 
+Copia **kes.vkey** a tu **ambiente frío**. 
+
+Cambia el valor de **kesPeriod** con el apropiado.
+
 Los operadores de stake pool debe de mostrar un certificado funcional para verificar que el pool tiene la autoridad para operar. El certificado incluye la firma del operador e incluye información clave sobre el pool \(direcciones, llaves, etc.\). Los certificados fucnionales representan el enlace entre las llaves frías del operador y su llave funcional.
 
-```text
+**Ambiente Frío**
+
+```bash
 cardano-cli shelley node issue-op-cert \
     --kes-verification-key-file kes.vkey \
-    --cold-signing-key-file ~/cold-keys/node.skey \
-    --operational-certificate-issue-counter ~/cold-keys/node.counter \
-    --kes-period $kesPeriod \
+    --cold-signing-key-file $HOME/cold-keys/node.skey \
+    --operational-certificate-issue-counter $HOME/cold-keys/node.counter \
+    --kes-period <kesPeriod> \
     --out-file node.cert
 ```
 
+Copia **node.cert** a tu **ambiente caliente**.
+
 Crea un par de llaves VRF.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley node key-gen-VRF \
     --verification-key-file vrf.vkey \
     --signing-key-file vrf.skey
@@ -448,17 +468,19 @@ cardano-cli shelley node key-gen-VRF \
 
 Abre una terminal en una nueva ventana con Ctrl+Alt+T y detén tu stake pool ejecutando lo siguiente:
 
-```text
-cd $NODE_HOME
-./stopStakePool.sh
-```
+**Nodo Productor de Bloques**
 
+```bash
+killall cardano-node
+```
 Actualiza tu script de arranque con los nuevos datos **KES, VRF y Certificado Funcional**
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cat > $NODE_HOME/startBlockProducingNode.sh << EOF 
 DIRECTORY=\$NODE_HOME
-PORT=3000
+PORT=6000
 HOSTADDR=0.0.0.0
 TOPOLOGY=\${DIRECTORY}/${NODE_CONFIG}-topology.json
 DB_PATH=\${DIRECTORY}/db
@@ -471,17 +493,18 @@ cardano-node run --topology \${TOPOLOGY} --database-path \${DB_PATH} --socket-pa
 EOF
 ```
 
-Para operar un stake pool, dos sets de llaves son necesarios: la llave KES \(caliente\) ya la llave fría. Las llaves frías generan nuevas llaves calientes de manera periódica.
+Para operar un stake pool, dos sets de llaves son necesarios: la llave KES \(caliente\) y la llave fría. Las llaves frías generan nuevas llaves calientes de manera periódica.
 
 Ahora inicia tu stake pool.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cd $NODE_HOME
-./startStakePool.sh
-tmux a
+./startBlockProducingNode.sh
 ```
 
-## 🔐 7. Prepara las llaves de pago y de staking
+## 🔐 10. Prepara las llaves de pago y de staking
 
 Primero, obtén los parámetros del protocolo.
 
@@ -489,9 +512,11 @@ Espera a que el nodo productor de bloques comience a sincronizarse antes de cont
 
 `cardano-cli: Network.Socket.connect: : does not exist (No such file or directory)`
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query protocol-parameters \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --out-file params.json
 ```
 
@@ -499,19 +524,32 @@ Las llaves de pago son usadas para enviar y recibir pagos y las llaves de stakin
 
 Hay dos formas de crear tus pares de llaves `payment` y `stake`. Escoge la que mejor te parezca.
 
+🔥 **Consejo Crucial para la Seguridad Operacional:** las llaves `payment` y `stake` deben de ser generadas y usadas para construir transacciones en un ambiente frío. En otras palabras, tu **máquina fuera de línea, asilada del internet**. Copia los binario de `cardano-cli` a tu máquina fuera de línea y ejecuta el método CLI method o el método mnemotécnico. Los únicos pasos hechos en línea en un ambiente caliente son los pasos que requieren data en vivo. Principalmente los siguientes tipos de pasos:
+
+* consultar el tip del slot actual
+* consultar el saldo de una dirección (cuenta) de ADA
+* enviar una transacción
+
+**MÉTODO CLI**
+
 Crea un nuevo para de llaves de pago:  `payment.skey` & `payment.vkey`
 
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
+cd $NODE_HOME
 cardano-cli shelley address key-gen \
     --verification-key-file payment.vkey \
     --signing-key-file payment.skey
 ```
 
- **MÉTODO CLI**
+Crea un nuevo par de llaves de dirección de stake: `stake.skey` & `stake.vkey`
 
- Crea un nuevo par de llaves de dirección de stake: `stake.skey` & `stake.vkey`
-
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 cardano-cli shelley stake-address key-gen \
     --verification-key-file stake.vkey \
     --signing-key-file stake.skey
@@ -519,7 +557,10 @@ cardano-cli shelley stake-address key-gen \
 
 Crea tu dirección de stake desde la llave de verificación de dirección de stake y almacénala en `stake.addr`
 
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 cardano-cli shelley stake-address build \
     --staking-verification-key-file stake.vkey \
     --out-file stake.addr \
@@ -528,7 +569,10 @@ cardano-cli shelley stake-address build \
 
 Crea una dirección de pago para tu llave de pago `payment.vkey` la cual delegará a tu dirección de stake, `stake.vkey`
 
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 cardano-cli shelley address build \
     --payment-verification-key-file payment.vkey \
     --staking-verification-key-file stake.vkey \
@@ -536,50 +580,74 @@ cardano-cli shelley address build \
     --mainnet
 ```
 
-**MÉTODO MNEMMOTÉCNICO**
+**MÉTODO MNEMOTÉCNICO**
 Créditos a [ilap](https://gist.github.com/ilap/3fd57e39520c90f084d25b0ef2b96894) por crear este proceso.
 
 **Beneficios**: Monitorea y controla las recompensas del pool desde cualquier billetera \(Daedalus, Yoroi o cualquier otra billetera\) que soporte staking.
 
 Crea un mnemotécnico de 15 o 24 palabras compatible con Shelley con [Daedalus](https://daedaluswallet.io/) or [Yoroi](../../../wallets/browser-wallets/yoroi-wallet-cardano.md) en una máquina desconectada del internet.
 
-Descarga `cardano-wallet`.
+Usando tu **nodo productor de bloques en línea**, descarga `cardano-wallet`.
 
-```text
+```bash
+###
+### En tu nodo productor de bloques,
+###
 cd $NODE_HOME
 wget https://hydra.iohk.io/build/3662127/download/1/cardano-wallet-shelley-2020.7.28-linux64.tar.gz
+```
+
+Verifica la legitimidad de `cardano-wallet` revisando el [sha256 hash encontrado en el botón **Details**.](https://hydra.iohk.io/build/3662127/)
+
+```bash
+echo "f75e5b2b4cc5f373d6b1c1235818bcab696d86232cb2c5905b2d91b4805bae84 *cardano-wallet-shelley-2020.7.28-linux64.tar.gz" | shasum -a 256 --check
+```
+
+Ejemplo de output válido:
+
+> cardano-wallet-shelley-2020.7.28-linux64.tar.gz: OK
+
+Continua solamente si el sha256 pasa el chequeo con **OK**!
+
+Transfiere la **cardano-wallet** a tu **máquina fuera de línea, aislada del internet** via llave USB o con un dispositivo similar.
+
+Extrae los archivos de la billetera y limpia.
+
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 tar -xvf cardano-wallet-shelley-2020.7.28-linux64.tar.gz
 rm cardano-wallet-shelley-2020.7.28-linux64.tar.gz
 ```
 
 Crea el script `extractPoolStakingKeys.sh`.
 
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 cat > extractPoolStakingKeys.sh << HERE
 #!/bin/bash 
 
 CADDR=\${CADDR:=\$( which cardano-address )}
-[[ -z "\$CADDR" ]] && ( echo "cardano-address no puede ser encontrado, saliendo..." >&2 ; exit 127 )
+[[ -z "\$CADDR" ]] && ( echo "cardano-address cannot be found, exiting..." >&2 ; exit 127 )
 
 CCLI=\${CCLI:=\$( which cardano-cli )}
-[[ -z "\$CCLI" ]] && ( echo "cardano-cli no puede ser encontrado, saliendo..." >&2 ; exit 127 )
+[[ -z "\$CCLI" ]] && ( echo "cardano-cli cannot be found, exiting..." >&2 ; exit 127 )
 
-#[[ "\$#" -ne 16 && "\$#" -ne 28 ]] && {
-#       	echo "usage: `basename \$0` <ouptut dir> <15-word length mnemonic>" >&2 
-#       	exit 127
-#}
 OUT_DIR="\$1"
 [[ -e "\$OUT_DIR"  ]] && {
-       	echo "El \"\$OUT_DIR\" ya existe, bórralo y ejecuta de nuevo." >&2 
-       	exit 127
+        echo "The \"\$OUT_DIR\" is already exist delete and run again." >&2 
+        exit 127
 } || mkdir -p "\$OUT_DIR" && pushd "\$OUT_DIR" >/dev/null
 
 shift
 MNEMONIC="\$*"
 
-# Generate the master key from mnemonics and derive the stake account keys 
-# as extended private and public keys (xpub, xprv)
-echo "\$MNEMONIC" |\
+# Genera la llave maestra de los mnemotécnicos y deriva las llaves stake de la cuenta (dirección)
+# como llaves públicas y privadas (xpub, xprv)
+echo "\$MNEMOTECNICO" |\
 "\$CADDR" key from-recovery-phrase Shelley > root.prv
 
 cat root.prv |\
@@ -598,12 +666,12 @@ cat payment.xprv |\
 "\$CADDR" address delegation \$(cat stake.xprv | "\$CADDR" key public | tee stake.xpub) |\
 tee base.addr_candidate |\
 "\$CADDR" address inspect
-echo "Generated from 1852H/1815H/0H/{0,2}/0"
+echo "Generado de 1852H/1815H/0H/{0,2}/0"
 cat base.addr_candidate
 echo
 
-# XPrv/XPub conversion to normal private and public key, keep in mind the 
-# keypars are not a valind Ed25519 signing keypairs.
+# Conversión a llaves publicas y privadas normales de XPrv/XPub, recuerda que 
+# "keypars" no son llaves pares de firmar Ed25519 válidas.
 TESTNET_MAGIC="--testnet-magic 42"
 MAINNET_MAGIC="--mainnet"
 MAGIC="\$MAINNET_MAGIC"
@@ -613,16 +681,16 @@ PESKEY=\$( cat payment.xprv | bech32 | cut -b -128 )\$( cat payment.xpub | bech3
 
 cat << EOF > stake.skey
 {
-    "type": "StakeExtendedSigningKeyShelley_ed25519_bip32",
-    "description": "",
+    "tipo": "StakeExtendedSigningKeyShelley_ed25519_bip32",
+    "descripcion": "",
     "cborHex": "5880\$SESKEY"
 }
 EOF
 
 cat << EOF > payment.skey
 {
-    "type": "PaymentExtendedSigningKeyShelley_ed25519_bip32",
-    "description": "Payment Signing Key",
+    "tipo": "PaymentExtendedSigningKeyShelley_ed25519_bip32",
+    "descripcion": "Payment Signing Key",
     "cborHex": "5880\$PESKEY"
 }
 EOF
@@ -641,7 +709,7 @@ EOF
     --stake-verification-key-file stake.vkey \
     \$MAGIC > base.addr
 
-echo "Importante, la base.addr y la base.addr_candidate deben de ser iguales"
+echo "Importante la base.addr y la base.addr_candidate deben de ser iguales"
 diff base.addr base.addr_candidate
 popd >/dev/null
 HERE
@@ -649,35 +717,59 @@ HERE
 
 Agrega los permisos y actualiza el PATH.
 
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 chmod +x extractPoolStakingKeys.sh
-echo PATH="$(pwd)/cardano-wallet-shelley-2020.7.28:$PATH" >> ~/.bashrc
-source ~/.bashrc
+export PATH="$(pwd)/cardano-wallet-shelley-2020.7.28:$PATH"
 ```
 
-Extrae tus kkaves. Actualiza el comando con tu frase mnemotécnica.
+Extrae tus llaves. Actualiza el comando con tu frase mnemotécnica.
 
-```text
-./extractPoolStakingKeys.sh extractedPoolKeys/ <15-word length mnemonic>
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
+./extractPoolStakingKeys.sh extractedPoolKeys/ <15|24-word length mnemonic>
 ```
 
-**Importante, la base.addr y la base.addr\_candidate deben de ser iguales. Revisá el output de la pantalla. Base.addr es la dirección que será acreditada.**
+**Importante, la base.addr y la base.addr\_candidate deben de ser iguales. Revisa el output de la pantalla.**
 
 Tus nuevas llaves de staking están en la carpeta `extractedPoolKeys/`
 
 Ahora mueve los pares de llaves `payment/stake` hacia tu `$NODE_HOME` para usarlas con tu stake pool.
 
-```text
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
 cd extractedPoolKeys/
 cp stake.vkey stake.skey stake.addr payment.vkey payment.skey base.addr $NODE_HOME
 cd $NODE_HOME
-#Rename to base.addr file to payment.addr
+#Renombra el archivo base.addr como payment.addr
 mv base.addr payment.addr
 ```
+
+**payment.addr**, o también conocida como base.addr en este script de extracción, será la dirección de ADA que contenga el pledge de tu pool.
+
+Limpia el historial bash para proteger tu frase mnemotécnica y remueve los archivos `cardano-wallet`.
+
+```bash
+###
+### En una máquina fuera de línea, aislada del internet,
+###
+history -c && history -w
+rm -rf $NODE_HOME/cardano-wallet-shelley-2020.7.28
+```
+
+Finalmente cierra todas tus ventanas con terminales y abre nuevas con cero historial.
 
 Genial, ahora puedes monitorear tus recompensas del pool en tu billetera.
 
 El siguiente paso es acreditar tu dirección de pago. 
+
+Copia **payment.addr** a tu **ambiente caliente**.
 
 La dirección de pago puede ser acreditada desde
 
@@ -686,18 +778,20 @@ La dirección de pago puede ser acreditada desde
 
 Ejecuta lo siguiente para encontrar tu dirección de pago.
 
-```text
+```bash
 cat payment.addr
 ```
 
 Después de haber acreditado a tu cuenta, chequea el saldo de tu dirección de pago.
 
-Antes de continnuar, tus nodos deben de estar completamente sincronizados con la blockchain. de lo contrario, no podrás ver tus fondos.
+Antes de continuar, tus nodos deben de estar completamente sincronizados con la blockchain. de lo contrario, no podrás ver tus fondos.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query utxo \
     --address $(cat payment.addr) \
-    $NETWORK_IDENTIFIER
+    --mainnet
 ```
 
 Deberías de ver un output similar a este. Esta es la transacción de tu saldo no utilizado \(UXTO\).
@@ -708,9 +802,11 @@ Deberías de ver un output similar a este. Esta es la transacción de tu saldo n
 100322a39d02c2ead....                                              0        1000000000
 ```
 
-## 👩💻 8. Registra tu dirección de stake
+## 👩💻 11. Registra tu dirección de stake
 
 Crea tu certificado, `stake.cert`, usando la llave `stake.vkey`
+
+**Nodo Productor de Bloques**
 
 ```text
 cardano-cli shelley stake-address registration-certificate \
@@ -720,17 +816,21 @@ cardano-cli shelley stake-address registration-certificate \
 
 Vas a necesitar encontrar el **tip** de la blockchain para establecer el parámetro **ttl**.
 
-```
-currentSlot=$(cardano-cli shelley query tip $NETWORK_IDENTIFIER | jq -r '.slotNo')
+**Nodo Productor de Bloques**
+
+```bash
+currentSlot=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 echo Current Slot: $currentSlot
 ```
 
 Encuentra tu saldo y **UTXOs**.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley query utxo \
     --address $(cat payment.addr) \
-    $NETWORK_IDENTIFIER > fullUtxo.out
+    --mainnet > fullUtxo.out
 
 tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
 
@@ -748,13 +848,15 @@ while read -r utxo; do
     tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
 done < balance.out
 txcnt=$(cat balance.out | wc -l)
-echo Total ADA balance: ${total_balance}
-echo Number of UTXOs: ${txcnt}
+echo Saldo Total de ADA: ${total_balance}
+echo Numero de UTXOs: ${txcnt}
 ```
 
 Encuentra el valor del keyDeposit.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 keyDeposit=$(cat $NODE_HOME/params.json | jq -r '.keyDeposit')
 echo keyDeposit: $keyDeposit
 ```
@@ -765,7 +867,9 @@ Ejectura el comando build-raw
 
 El valor del **ttl** debe de ser mayor que el tip actual. En este ejemplo, usamos el slot actual + 10000.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+0 \
@@ -777,30 +881,36 @@ cardano-cli shelley transaction build-raw \
 
 Calcula el costo mínimo actual:
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 fee=$(cardano-cli shelley transaction calculate-min-fee \
     --tx-body-file tx.tmp \
     --tx-in-count ${txcnt} \
     --tx-out-count 1 \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --witness-count 2 \
     --byron-witness-count 0 \
     --protocol-params-file params.json | awk '{ print $1 }')
-echo fee: $fee
+echo costo minimo: $fee
 ```
 
 Asegúrate que tu saldo sea mayor al costo a pagar + keyDeposit o esto no funcionará.
 
 Calcula el output de tu cambio.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 txOut=$((${total_balance}-${keyDeposit}-${fee}))
 echo Change Output: ${txOut}
 ```
 
 Construye tu transacción con la cual vas a registrar tu dirección de stake.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction build-raw \
     ${tx_in} \
     --tx-out $(cat payment.addr)+${txOut} \
@@ -810,26 +920,34 @@ cardano-cli shelley transaction build-raw \
     --out-file tx.raw
 ```
 
+Copia **tx.raw** a tu **ambiente frío**.
+
 Firma la transacción con ambas llaves de pago y de stake.
 
-```text
+**Máquina fuera de línea, aislada del internet**
+
+```bash
 cardano-cli shelley transaction sign \
     --tx-body-file tx.raw \
     --signing-key-file payment.skey \
     --signing-key-file stake.skey \
-    $NETWORK_IDENTIFIER \
+    --mainnet \
     --out-file tx.signed
 ```
 
-Enviá la transacción firmada.
+Copia **tx.signed** a tu **ambiente caliente**.
 
-```text
+Envía la transacción firmada.
+
+**Nodo Productor de Bloques**
+
+```bash
 cardano-cli shelley transaction submit \
     --tx-file tx.signed \
-    $NETWORK_IDENTIFIER
+    --mainnet
 ```
 
-## 📄 9. Registrá tu stake pool
+## 📄 12. Registra tu stake pool
 
 Creá los metadatos de tu pool con un archivo JSON. Actualizalos con la información de tu pool.
 
