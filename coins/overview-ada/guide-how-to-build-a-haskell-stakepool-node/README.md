@@ -2492,7 +2492,7 @@ Este es el Telegram de **COINCASHEW**. Es un canal en **INGLÉS** [https://t.me/
 
 ### 😊 17.3 Donaciones y Propinas
 
-**PRIMERAMENTE, DONACIONES A COINCASHEW, LOS CREADORES DE LA ESTA GUÍA**
+**PRIMERAMENTE, DONACIONES A COINCASHEW, LOS CREADORES DE ESTA GUÍA**
 "Apreciamos sinceramente todas las [donaciones](../../../contact-us/donations.md). 😁 ¡Gracias por apoyar a Cardano y a nosotros!" 
 
 **Dirección de ADA de COINCASHEW**
