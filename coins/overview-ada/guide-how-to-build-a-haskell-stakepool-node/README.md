@@ -963,29 +963,66 @@ cat > poolMetaData.json << EOF
 "name": "NombreDeMiPool",
 "description": "Descripción de mi Pool",
 "ticker": "NDMP",
-"homepage": "https://miadapoolesgenial.com"
+"homepage": "https://mipoolesgenial.com"
 }
 EOF
 ```
 
 Calcula el hash del archivo de tus metadatos.
 
-```text
+```bash
 cardano-cli shelley stake-pool metadata-hash --pool-metadata-file poolMetaData.json > poolMetaDataHash.txt
 ```
 
-Ahora sube el archivo **poolMetaData.json** a tu ditio web o a un si'tio público como [https://pages.github.com/](https://pages.github.com/)
+Ahora sube el archivo **poolMetaData.json** a tu sitio web o a un sitio público como [https://pages.github.com/](https://pages.github.com/)
 
 Encuentra el costo operacional mínimo del pool.
 
-```text
+**Nodo Productor de Bloques**
+
+```bash
 minPoolCost=$(cat $NODE_HOME/params.json | jq -r .minPoolCost)
 echo minPoolCost: ${minPoolCost}
 ```
 
 minPoolCost es de 340000000 lovelace o 340 ADA. Por lo tanto, tu `--pool-cost` debe de ser esta cantidad como mínimo.
 
-Crea el certificado de registro para tu stake pool. Actualízalo con tu **URL de metadatos** y**dirección IP del nodo de relevo**.
+Crea el certificado de registro para tu stake pool. Actualízalo con tu **URL de metadatos** y**dirección IP del nodo de relevo**. Elige una de las tres opciones disponibles para configurar los nodos de relevo -- basados en DNS, basados en DNS con Sistema de Liga, o basados en IP.
+
+Relevos basados en DNS son recomendados por simplicidad de mantenimiento del nodo. En otras palabras, no tendrás que reenviar esta transacción para el **certificado de registro** transaction cada vez que tu IP cambie. También fácilmente puedes actualizar el DNS a que apunte hacia la nueva IP si debes de mudarte o reconstruir tu nodo de relevo, por ejemplo.
+
+#### ✨ **¿Cómo configurar múltiples nodos de relevo?** 
+
+Actualiza la siguiente operación
+
+`cardano-cli shelley stake-pool registration-certificate`
+
+para ser ejecutada de manera apropiada en tu máquina fuera de línea, aislada del internet. 
+
+**Relevos basados en DNS, 1 entrada por cada DNS**
+
+```bash
+    --single-host-pool-relay relevo1.mipoolesgenial.com\
+    --pool-relay-port 6000 \
+    --single-host-pool-relay relevo2.mipoolesgenial.com\
+    --pool-relay-port 6000 \
+```
+
+**Relevos basados en DNS con Sistema de Liga, 1 entrada por** [**cada SRV DNS**](https://support.dnsimple.com/articles/srv-record/)\*\*\*\*
+
+```bash
+    --multi-host-pool-relay nodosDeRelevo.mipoolesgenial\
+    --pool-relay-port 6000 \
+```
+
+**Relevos basados en IP, 1 entrada por dirección IP**
+
+```bash
+    --pool-relay-port 6000 \
+    --pool-relay-ipv4 <primera dirección IP pública de tu nodo de relevo> \
+    --pool-relay-port 6000 \
+    --pool-relay-ipv4 <segunda dirección IP pública de tu nodo de relevo> \
+``` 
 
 **metadata-url** no debe de exceder los 64 caracteres.
 
