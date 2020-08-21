@@ -18,7 +18,7 @@ nodo productor de bloques y un (1) nodo de relevo**.
 # Guía: Cómo construir un Stake Pool de Cardano
 
 
-A partir del 11 de agosto, 2020, esta guía está escrita para **mainnet** con **edición v.1.18.0** 😁 
+A partir del 20 de agosto, 2020, esta guía está escrita para **mainnet** con **edición v.1.19.0** 😁 
 
 ## 🏁 0. Prerequisitos
 
@@ -145,14 +145,14 @@ La versión de la librería de Cabal debería de ser 3.2.0.0 y la versión de GH
 
 ## 🏗 2. Construyendo el nodo desde el código fuente
 
-Descarga el código fuente y cambia al *tag* más reciente. En este caso usa `tags/1.18.0`
+Descarga el código fuente y cambia al *tag* más reciente.
 
 ```text
 cd ~/git
 git clone https://github.com/input-output-hk/cardano-node.git
 cd cardano-node
 git fetch --all
-git checkout tags/1.18.0
+git checkout tags/1.19.0
 ```
 
 Actualiza cabal config, configuración del proyecto y resetea la carpeta de construcción.
