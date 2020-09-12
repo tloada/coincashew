@@ -18,7 +18,7 @@ nodo productor de bloques y un (1) nodo de relevo**.
 # Guía: Cómo construir un Stake Pool de Cardano
 
 
-A partir del 20 de agosto, 2020, esta guía está escrita para **mainnet** con **edición v.1.19.0** 😁 
+A partir del 4 de septiembre, 2020, esta guía está escrita para **mainnet** con **edición v.1.19.1** 😁 
 
 ## 🏁 0. Prerequisitos
 
@@ -78,7 +78,7 @@ Si estás reconstruyendo o reusando una instalción existente de `cardano-node`,
 
 Primeramente, actualiza los paquetes e instala las dependencias de Ubuntu.
 
-```text
+```bash
 sudo apt-get update -y
 sudo apt-get upgrade -y
 sudo apt-get install git make tmux rsync htop curl build-essential pkg-config libffi-dev libgmp-dev libssl-dev libtinfo-dev libsystemd-dev zlib1g-dev make g++ tmux git jq wget libncursesw5 libtool autoconf -y
@@ -86,7 +86,7 @@ sudo apt-get install git make tmux rsync htop curl build-essential pkg-config li
 
 Instala Libsodium.
 
-```text
+```bash
 mkdir ~/git
 cd ~/git
 git clone https://github.com/input-output-hk/libsodium
@@ -100,7 +100,7 @@ sudo make install
 
 Instala Cabal.
 
-```text
+```bash
 cd
 wget https://downloads.haskell.org/~cabal/cabal-install-3.2.0.0/cabal-install-3.2.0.0-x86_64-unknown-linux.tar.xz
 tar -xf cabal-install-3.2.0.0-x86_64-unknown-linux.tar.xz
@@ -111,7 +111,7 @@ mv cabal ~/.local/bin/
 
 Instala GHC.
 
-```text
+```bash
 wget https://downloads.haskell.org/~ghc/8.6.5/ghc-8.6.5-x86_64-deb9-linux.tar.xz
 tar -xf ghc-8.6.5-x86_64-deb9-linux.tar.xz
 rm ghc-8.6.5-x86_64-deb9-linux.tar.xz
@@ -122,20 +122,18 @@ sudo make install
 
 Actualiza el PATH para que incluya Cabal y GHC y agrega los exportes. La dirección a tu nodo será **$NODE\_HOME**. La [agrupación de la configuración](https://hydra.iohk.io/job/Cardano/iohk-nix/cardano-deployment/latest-finished/download/1/index.html) es establecida por **$NODE\_CONFIG, $NODE\_URL** y **$NODE\_BUILD\_NUM**. 
 
-```text
-echo PATH="~/.local/bin:$PATH" >> ~/.bashrc
-echo export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH" >> ~/.bashrc
-echo export NODE_HOME=$HOME/cardano-my-node >> ~/.bashrc
-echo export NODE_CONFIG=mainnet>> ~/.bashrc
-echo export NODE_URL=cardano-mainnet >> ~/.bashrc
-echo export NODE_BUILD_NUM=$(curl https://hydra.iohk.io/job/Cardano/iohk-nix/cardano-deployment/latest-finished/download/1/index.html | grep -e "build" | sed 's/.*build\/\([0-9]*\)\/download.*/\1/g') >> ~/.bashrc
-echo export NETWORK_IDENTIFIER=\"--mainnet\" >> ~/.bashrc
-source ~/.bashrc
+```bash
+echo PATH="$HOME/.local/bin:$PATH" >> $HOME/.bashrc
+echo export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH" >> $HOME/.bashrc
+echo export NODE_HOME=$HOME/cardano-my-node >> $HOME/.bashrc
+echo export NODE_CONFIG=mainnet>> $HOME/.bashrc
+echo export NODE_BUILD_NUM=$(curl https://hydra.iohk.io/job/Cardano/iohk-nix/cardano-deployment/latest-finished/download/1/index.html | grep -e "build" | sed 's/.*build\/\([0-9]*\)\/download.*/\1/g') >> $HOME/.bashrc
+source $HOME/.bashrc
 ```
 
 Actualiza cabal y verifica que las versiones correctas fueron instaladas correctamente.
 
-```text
+```bash
 cabal update
 cabal -V
 ghc -V
@@ -147,17 +145,17 @@ La versión de la librería de Cabal debería de ser 3.2.0.0 y la versión de GH
 
 Descarga el código fuente y cambia al *tag* más reciente.
 
-```text
+```bash
 cd ~/git
 git clone https://github.com/input-output-hk/cardano-node.git
 cd cardano-node
 git fetch --all
-git checkout tags/1.19.0
+git checkout tags/1.19.1
 ```
 
 Actualiza cabal config, configuración del proyecto y resetea la carpeta de construcción.
 
-```text
+```bash
 echo -e "package cardano-crypto-praos\n flags: -external-libsodium-vrf" > cabal.project.local
 sed -i $HOME/.cabal/config -e "s/overwrite-policy:/overwrite-policy: always/g"
 rm -rf $HOME/git/cardano-node/dist-newstyle/build/x86_64-linux/ghc-8.6.5
@@ -173,7 +171,7 @@ El proceso de construcción puede tomar unos minutos e incluso algunas horas dep
 
 Copia los archivos **cardano-cli** y **cardano-node** a tu carpeta *bin*.
 
-```text
+```bash
 sudo cp $(find ~/git/cardano-node/dist-newstyle/build -type f -name "cardano-cli") /usr/local/bin/cardano-cli
 sudo cp $(find ~/git/cardano-node/dist-newstyle/build -type f -name "cardano-node") /usr/local/bin/cardano-node
 ```
@@ -189,7 +187,7 @@ cardano-cli version
 
 Aquí conseguirás los archivos config.json, genesis.json y topology.json necesarios para configurar tu nodo.
 
-```text
+```bash
 mkdir $NODE_HOME
 cd $NODE_HOME
 wget -N https://hydra.iohk.io/build/${NODE_BUILD_NUM}/download/1/${NODE_CONFIG}-byron-genesis.json
@@ -203,7 +201,7 @@ Ejecuta lo siguiente para modificar **config.json** y
 * actualiza ViewMode a "LiveView"
 * actualiza TraceBlockFetchDecisions a "true"
 
-```text
+```bash
 sed -i ${NODE_CONFIG}-config.json \
     -e "s/SimpleView/LiveView/g" \
     -e "s/TraceBlockFetchDecisions\": false/TraceBlockFetchDecisions\": true/g"
@@ -211,7 +209,7 @@ sed -i ${NODE_CONFIG}-config.json \
 
 Actualiza las variables **.bashrc** de tu shell.
 
-```
+```bash
 echo export CARDANO_NODE_SOCKET_PATH="$NODE_HOME/db/socket" >> ~/.bashrc
 source ~/.bashrc
 ```
@@ -432,14 +430,17 @@ Encuentra el kesPeriod dividiendo el número del slot tip por el slotsPerKESPeri
 
 ```bash
 kesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
+echo kesPeriod: ${kesPeriod}kesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
 echo kesPeriod: ${kesPeriod}
+startKesPeriod=$(( ${kesPeriod} - 1 ))
+echo startKesPeriod: ${startKesPeriod}
 ```
 
 Con este cálculo, puedes crear un certificado funcional para tu pool.
 
 Copia **kes.vkey** a tu **ambiente frío**. 
 
-Cambia el valor de **kesPeriod** con el apropiado.
+Cambia el valor de **startKesPeriod** con el apropiado.
 
 Los operadores de stake pool debe de mostrar un certificado funcional para verificar que el pool tiene la autoridad para operar. El certificado incluye la firma del operador e incluye información clave sobre el pool \(direcciones, llaves, etc.\). Los certificados fucnionales representan el enlace entre las llaves frías del operador y su llave funcional.
 
@@ -450,7 +451,7 @@ cardano-cli shelley node issue-op-cert \
     --kes-verification-key-file kes.vkey \
     --cold-signing-key-file $HOME/cold-keys/node.skey \
     --operational-certificate-issue-counter $HOME/cold-keys/node.counter \
-    --kes-period <kesPeriod> \
+    --kes-period <startKesPeriod> \
     --out-file node.cert
 ```
 
@@ -1521,7 +1522,7 @@ cardano-cli shelley query stake-address-info \
 
 Prometheus es una plataforma de monitoreo que recolecta métricas de objetivos monitoreados mediante la extracción de métricas de extremos HTTPS en estos objetivos. [Documentación oficial disponible aquí.](https://prometheus.io/docs/introduction/overview/) Grafana es una consola de control usada para visualizar la data recolectada.
 
-###  🐣 13.1 Instalación
+###  🐣 16.1 Instalación
 
 Instala prometheus y prometheus node exporter.
 
@@ -2563,19 +2564,42 @@ Es obligatorio que recrees las llaves calientes y emitas un nuevo vertificado fu
 
 **Actualizando el Periodo KES**: Cuando sea tiempo de emitir un nuevo certificado funcional, ejecuta lo siguiente:
 
-**Máquina fuera de línea, aislada del internet**
+**Nodo Productor de Bloques**
 
 ```bash
 cd $NODE_HOME
 slotNo=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
 slotsPerKESPeriod=$(cat $NODE_HOME/${NODE_CONFIG}-shelley-genesis.json | jq -r '.slotsPerKESPeriod')
 kesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
+startKesPeriod=$(( ${kesPeriod} - 1 ))
+echo startKesPeriod: ${startKesPeriod}
+```
+
+Crear un nuevo par de llaves KES.
+
+**Nodo Productor de Bloques**
+
+```bash
+cd $NODE_HOME
+cardano-cli shelley node key-gen-KES \
+    --verification-key-file kes.vkey \
+    --signing-key-file kes.skey
+```
+
+Copia **kes.vkey** a tu **ambiente frío**
+
+Crea el nuevo archivo `node.cert` con el siguiente comando. Actualiza `<startKesPeriod>` con el valor anterior.
+
+**Máquina fuera de línea, aislada del internet**
+
+```bash
+cd $NODE_HOME
 chmod u+rwx $HOME/cold-keys
 cardano-cli shelley node issue-op-cert \
     --kes-verification-key-file kes.vkey \
     --cold-signing-key-file $HOME/cold-keys/node.skey \
     --operational-certificate-issue-counter $HOME/cold-keys/node.counter \
-    --kes-period ${kesPeriod} \
+    --kes-period <startKesPeriod> \
     --out-file node.cert
 chmod a-rwx $HOME/cold-keys
 ```
@@ -3105,7 +3129,7 @@ cardano-cli shelley transaction build-raw \
     --out-file tx.tmp
 ```
 
-Calcula el cosot mínimo actual:
+Calcula el costo mínimo actual:
 
 **Nodo Productor de Bloques**
 
@@ -3187,6 +3211,170 @@ Deberías de recibir un output similar a el siguiente, mostrando los fondos que 
                            TxHash                                 TxIx        Lovelace
 ----------------------------------------------------------------------------------------
 100322a39d02c2ead....                                              0        10000000
+```
+
+### 🍰 18.10 Reclama tus recompensas
+
+Vamos a guíarte en el ejemplo de cómo reclamar las recompensas de tu stake pool. 
+
+Las recompensas están acumuladas en la dirección `stake.addr`.
+
+Primero, encuentra el **tip** de la blockchain para establecer el parámetro **ttl** apropiadamente.
+
+**Nodo Productor de Bloques**
+
+```bash
+currentSlot=$(cardano-cli shelley query tip --mainnet | jq -r '.slotNo')
+echo Slot Actual: $currentSlot
+```
+
+Indica el monto de lovelaces que quieres enviar. ✨ Recuerda **1 ADA** = **1,000,000 lovelaces.**
+
+**Nodo Productor de Bloques**
+
+```bash
+rewardBalance=$(cardano-cli shelley query stake-address-info \
+    --mainnet \
+    --address $(cat stake.addr) | jq -r ".[0].rewardAccountBalance")
+echo rewardBalance: $rewardBalance
+```
+
+Indica la dirección destinataria a la cual enviarás tus recompensas. Esta dirección debe de tener un saldo positivo para pagar por el costo de la transacción.
+
+**Nodo Productor de Bloques**
+
+```bash
+destinationAddress=$(cat payment.addr)
+echo destinationAddress: $destinationAddress
+```
+
+Encuentra el saldo y los utxos de tu payment.addr balance y construye tu cadena de retiro (withdrawal string).
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query utxo \
+    --address $(cat payment.addr) \
+    --mainnet > fullUtxo.out
+
+tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
+
+cat balance.out
+
+tx_in=""
+total_balance=0
+while read -r utxo; do
+    in_addr=$(awk '{ print $1 }' <<< "${utxo}")
+    idx=$(awk '{ print $2 }' <<< "${utxo}")
+    utxo_balance=$(awk '{ print $3 }' <<< "${utxo}")
+    total_balance=$((${total_balance}+${utxo_balance}))
+    echo TxHash: ${in_addr}#${idx}
+    echo ADA: ${utxo_balance}
+    tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
+done < balance.out
+txcnt=$(cat balance.out | wc -l)
+echo Total ADA balance: ${total_balance}
+echo Number of UTXOs: ${txcnt}
+
+withdrawalString="$(cat stake.addr)+${rewardBalance}"
+```
+
+Ejecuta el comando de transacción build-raw.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley transaction build-raw \
+    ${tx_in} \
+    --tx-out $(cat payment.addr)+0 \
+    --ttl $(( ${currentSlot} + 10000)) \
+    --fee 0 \
+    --withdrawal ${withdrawalString} \
+    --out-file tx.tmp
+```
+
+Calcula el costo mínimo actual:
+
+**Nodo Productor de Bloques**
+
+```bash
+fee=$(cardano-cli shelley transaction calculate-min-fee \
+    --tx-body-file tx.tmp \
+    --tx-in-count ${txcnt} \
+    --tx-out-count 1 \
+    --mainnet \
+    --witness-count 2 \
+    --byron-witness-count 0 \
+    --protocol-params-file params.json | awk '{ print $1 }')
+echo fee: $fee
+```
+
+Calcula el output de tu cambio.
+
+**Nodo Productor de Bloques**
+
+```bash
+txOut=$((${total_balance}-${fee}+${rewardBalance}))
+echo Change Output: ${txOut}
+```
+
+Construye tu transacción. 
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley transaction build-raw \
+    ${tx_in} \
+    --tx-out $(cat payment.addr)+${txOut} \
+    --ttl $(( ${currentSlot} + 10000)) \
+    --fee ${fee} \
+    --withdrawal ${withdrawalString} \
+    --out-file tx.raw
+```
+
+Copia **tx.raw** a tu **ambiente frío**.
+
+Firma la transacción con ambas llaves de pago y de stake. 
+
+**Máquina fuera de línea, aislada del internet**
+
+```bash
+cardano-cli shelley transaction sign \
+    --tx-body-file tx.raw \
+    --signing-key-file payment.skey \
+    --signing-key-file stake.skey \
+    --mainnet \
+    --out-file tx.signed
+```
+
+Copia **tx.signed** a tu **ambiente caliente**.
+
+Envía la transacción firmada.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley transaction submit \
+    --tx-file tx.signed \
+    --mainnet
+```
+
+Revisa que los fondos hayan llegado.
+
+**Nodo Productor de Bloques**
+
+```bash
+cardano-cli shelley query utxo \
+    --address ${destinationAddress} \
+    --mainnet
+```
+
+Deberías de recibir un output similar a el siguiente, mostrando los fondos que enviaste.
+
+```text
+                           TxHash                                 TxIx        Lovelace
+----------------------------------------------------------------------------------------
+100322a39d02c2ead....  
 ```
 
 ## 🌜 19. Retirando tu stake pool
