@@ -3080,7 +3080,7 @@ echo direccionDestinataria: $destinationAddress
 **Para enviar 10 ADA a The Legend of ₳da, usa el siguiente comando:**
 
 ```bash
-destinationAddress=addr1q87d37clyu4ctaz5ah8lrjwzyrsrqvpt0u83wghvdl66ea6gvzmayvajt7rstn79xtcxmuxk84k3s0qypq7af74lfemsvlzktu
+destinationAddress=addr1q9daakzp27pdhfyd0ncf2hg94mht9p2swakk45yy7zlmsnsslwtpqmq29mjp7yr4kf28ng42un4wr944a3qxa8qxe0dsmyl990
 echo direccionDestinataria: $destinationAddress
 ```
 
